@@ -1,0 +1,30 @@
+# Node modules
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Environment variables
+.env
+backend/.env
+frontend/.env
+
+# Build outputs
+dist/
+.output/
+.nuxt/
+backend/dist/
+frontend/.output/
+frontend/.nuxt/
+
+# IDE files
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.log
+
+# Misc
+.cache/
+.npm/
+uploads/
+backend/uploads/

@@ -1,0 +1,402 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id             String             @id @default(uuid())
+  name           String
+  currencyCode   String             @default("EUR") @map("currency_code")
+  kmRate         Decimal            @default(0.30) @map("km_rate")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  credits        Credit[]
+  deliveries     Delivery[]
+  feedPosts      FeedPost[]
+  reviews        Review[]
+  chatMessages   ChatMessage[]
+  offers         Offer[]
+  orders         Order[]
+  producerDrafts ProducerPriority[]
+  products       Product[]
+  allocations    SeasonAllocation[]
+  seasons        Season[]
+  settlements    Settlement[]
+  users          User[]
+
+  @@map("tenants")
+}
+
+model User {
+  id                  String             @id @default(uuid())
+  tenantId            String             @map("tenant_id")
+  role                Role
+  name                String
+  email               String?            @unique
+  password            String?            @map("password_hash")
+  phone               String?
+  isActive            Boolean            @default(true) @map("is_active")
+  address             String?
+  latitude            Float?
+  longitude           Float?
+  createdAt           DateTime           @default(now()) @map("created_at")
+  credits             Credit[]
+  confirmedDeliveries Delivery[]         @relation("DeliveryConfirmer")
+  deliveries          Delivery[]         @relation("DeliveryProducer")
+  feedPosts           FeedPost[]
+  offers              Offer[]
+  assignedOrderItems  OrderItem[]        @relation("AssignedProducer")
+  orders              Order[]            @relation("ConsumerOrders")
+  confirmedPickups    Order[]            @relation("PickupConfirmer")
+  producerDrafts      ProducerPriority[]
+  qrTokens            QrToken[]
+  allocations         SeasonAllocation[]
+  givenReviews        Review[]           @relation("ConsumerReviews")
+  receivedReviews     Review[]           @relation("ProducerReviews")
+  sentMessages        ChatMessage[]      @relation("SentMessages")
+  receivedMessages    ChatMessage[]      @relation("ReceivedMessages")
+  closedSettlements   Settlement[]       @relation("SettlementCloser")
+  settlements         Settlement[]
+  tenant              Tenant             @relation(fields: [tenantId], references: [id])
+
+  @@map("users")
+}
+
+model Product {
+  id               String             @id @default(uuid())
+  tenantId         String             @map("tenant_id")
+  name             String
+  latinName        String?            @map("latin_name")
+  localName        String?            @map("local_name")
+  unitType         UnitType           @map("unit_type")
+  unitDescription  String?            @map("unit_description")
+  pricePerKg       Decimal?           @map("price_per_kg")
+  minWeightKg      Decimal?           @map("min_weight_kg")
+  maxWeightKg      Decimal?           @map("max_weight_kg")
+  itemsPerBunchMin Int?               @map("items_per_bunch_min")
+  itemsPerBunchMax Int?               @map("items_per_bunch_max")
+  pricePerBunch    Decimal?           @map("price_per_bunch")
+  pricePerUnit     Decimal?           @map("price_per_unit")
+  nutritionalInfo  Json?              @map("nutritional_info")
+  recipes          Json?
+  createdAt        DateTime           @default(now()) @map("created_at")
+  imageUrl         String?            @map("image_url")
+  feedPosts        FeedPost[]
+  reviews          Review[]
+  offers           Offer[]
+  orderItems       OrderItem[]
+  producerDrafts   ProducerPriority[]
+  tenant           Tenant             @relation(fields: [tenantId], references: [id])
+  allocations      SeasonAllocation[]
+
+  @@map("products")
+}
+
+model Season {
+  id                 String             @id @default(uuid())
+  tenantId           String             @map("tenant_id")
+  name               String
+  startDate          DateTime           @map("start_date")
+  endDate            DateTime?          @map("end_date")
+  isActive           Boolean            @default(false) @map("is_active")
+  status             SeasonStatus       @default(DRAFT)
+  producerRotation   Json?              @map("producer_rotation")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  producerPriorities ProducerPriority[]
+  allocations        SeasonAllocation[]
+  tenant             Tenant             @relation(fields: [tenantId], references: [id])
+
+  @@map("seasons")
+}
+
+model ProducerPriority {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  seasonId      String   @map("season_id")
+  priorityOrder Int      @map("priority_order")
+  producerId    String   @map("producer_id")
+  productId     String   @map("product_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  producer      User     @relation(fields: [producerId], references: [id])
+  product       Product  @relation(fields: [productId], references: [id])
+  season        Season   @relation(fields: [seasonId], references: [id])
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([seasonId, producerId, priorityOrder])
+  @@map("producer_priorities")
+}
+
+model SeasonAllocation {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  seasonId   String   @map("season_id")
+  producerId String   @map("producer_id")
+  productId  String   @map("product_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  producer   User     @relation(fields: [producerId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
+  season     Season   @relation(fields: [seasonId], references: [id])
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([seasonId, producerId, productId])
+  @@map("season_allocations")
+}
+
+model Offer {
+  id                  String   @id @default(uuid())
+  tenantId            String   @map("tenant_id")
+  producerId          String   @map("producer_id")
+  productId           String   @map("product_id")
+  week                DateTime @db.Date
+  availableQuantityKg Decimal? @map("available_quantity_kg")
+  availableUnits      Int?     @map("available_units")
+  availableMinKg      Decimal? @map("available_min_kg")
+  availableMaxKg      Decimal? @map("available_max_kg")
+  isConfirmed         Boolean  @default(false) @map("is_confirmed")
+  photoUrl            String?  @map("photo_url")
+  createdAt           DateTime @default(now()) @map("created_at")
+  producer            User     @relation(fields: [producerId], references: [id])
+  product             Product  @relation(fields: [productId], references: [id])
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([producerId, productId, week])
+  @@index([tenantId])
+  @@index([productId, week, producerId])
+  @@map("offers")
+}
+
+model Order {
+  id                 String      @id @default(uuid())
+  tenantId           String      @map("tenant_id")
+  consumerId         String      @map("consumer_id")
+  week               DateTime    @db.Date
+  status             OrderStatus @default(pending)
+  pickupQrToken      String?     @unique @map("pickup_qr_token") @db.Uuid
+  pickupConfirmedAt  DateTime?   @map("pickup_confirmed_at")
+  pickupConfirmedBy  String?     @map("pickup_confirmed_by")
+  totalEstimated     Decimal?    @map("total_estimated")
+  totalFinal         Decimal?    @map("total_final")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  binNumber          Int?        @map("bin_number")
+  deliveryDistanceKm Decimal?    @map("delivery_distance_km")
+  deliveryFee        Decimal?    @default(0.00) @map("delivery_fee")
+  usedCredits        Credit[]    @relation("CreditUsage")
+  deliveries         Delivery[]
+  items              OrderItem[]
+  consumer           User        @relation("ConsumerOrders", fields: [consumerId], references: [id])
+  pickupConfirmer    User?       @relation("PickupConfirmer", fields: [pickupConfirmedBy], references: [id])
+  tenant             Tenant      @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, week])
+  @@index([pickupQrToken])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                   String        @id @default(uuid())
+  orderId              String        @map("order_id")
+  productId            String        @map("product_id")
+  estimatedQuantityKg  Decimal?      @map("estimated_quantity_kg")
+  estimatedUnits       Int?          @map("estimated_units")
+  estimatedPrice       Decimal?      @map("estimated_price")
+  assignedToProducerId String?       @map("assigned_to_producer")
+  actualWeightKg       Decimal?      @map("actual_weight_kg")
+  finalPrice           Decimal?      @map("final_price")
+  hasIncident          Boolean       @default(false) @map("has_incident")
+  incidentType         IncidentType? @map("incident_type")
+  incidentPhotoUrl     String?       @map("incident_photo_url")
+  creditIssued         Decimal?      @default(0.00) @map("credit_issued")
+  credits              Credit[]      @relation("CreditSource")
+  assignedProducer     User?         @relation("AssignedProducer", fields: [assignedToProducerId], references: [id])
+  order                Order         @relation(fields: [orderId], references: [id])
+  product              Product       @relation(fields: [productId], references: [id])
+  review               Review?
+
+  @@map("order_items")
+}
+
+model Delivery {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  orderId         String    @map("order_id")
+  producerId      String    @map("producer_id")
+  binNumber       Int       @map("bin_number")
+  deliveryQrToken String?   @unique @map("delivery_qr_token") @db.Uuid
+  confirmedAt     DateTime? @map("confirmed_at")
+  confirmedBy     String?   @map("confirmed_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  confirmer       User?     @relation("DeliveryConfirmer", fields: [confirmedBy], references: [id])
+  order           Order     @relation(fields: [orderId], references: [id])
+  producer        User      @relation("DeliveryProducer", fields: [producerId], references: [id])
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@index([deliveryQrToken])
+  @@map("deliveries")
+}
+
+model Credit {
+  id            String     @id @default(uuid())
+  tenantId      String     @map("tenant_id")
+  consumerId    String     @map("consumer_id")
+  orderItemId   String?    @map("order_item_id")
+  amount        Decimal
+  reason        String
+  isUsed        Boolean    @default(false) @map("is_used")
+  usedInOrderId String?    @map("used_in_order")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  consumer      User       @relation(fields: [consumerId], references: [id])
+  sourceItem    OrderItem? @relation("CreditSource", fields: [orderItemId], references: [id])
+  tenant        Tenant     @relation(fields: [tenantId], references: [id])
+  usedInOrder   Order?     @relation("CreditUsage", fields: [usedInOrderId], references: [id])
+
+  @@map("credits")
+}
+
+model QrToken {
+  token      String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  userId     String?   @map("user_id")
+  type       QrType
+  resourceId String    @map("resource_id")
+  expiresAt  DateTime  @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  user       User?     @relation(fields: [userId], references: [id])
+
+  @@map("qr_tokens")
+}
+
+model FeedPost {
+  id         String     @id @default(uuid())
+  tenantId   String     @map("tenant_id")
+  producerId String     @map("producer_id")
+  productId  String?    @map("product_id")
+  message    String?
+  photoUrl   String?    @map("photo_url")
+  eventType  EventType? @map("event_type")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  producer   User       @relation(fields: [producerId], references: [id])
+  product    Product?   @relation(fields: [productId], references: [id])
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  likes      Like[]
+
+  @@map("feed_posts")
+}
+
+model Like {
+  id         String   @id @default(uuid())
+  postId     String   @map("post_id")
+  consumerId String   @map("consumer_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  post       FeedPost @relation(fields: [postId], references: [id])
+  
+  @@unique([postId, consumerId])
+  @@map("feed_likes")
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  consumerId  String   @map("consumer_id")
+  productId   String   @map("product_id")
+  producerId  String   @map("producer_id")
+  orderItemId String?  @unique @map("order_item_id")
+  rating      Int      @default(5)
+  comment     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  consumer    User       @relation("ConsumerReviews", fields: [consumerId], references: [id])
+  producer    User       @relation("ProducerReviews", fields: [producerId], references: [id])
+  product     Product    @relation(fields: [productId], references: [id])
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id])
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
+
+  @@map("reviews")
+}
+
+model ChatMessage {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  senderId    String   @map("sender_id")
+  receiverId  String   @map("receiver_id")
+  content     String
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("chat_messages")
+}
+
+model Settlement {
+  id                     String    @id @default(uuid())
+  tenantId               String    @map("tenant_id")
+  producerId             String    @map("producer_id")
+  week                   DateTime  @db.Date
+  totalSales             Decimal?  @map("total_sales")
+  totalRefunds           Decimal?  @map("total_refunds")
+  totalWeightAdjustments Decimal?  @map("total_weight_adjustments")
+  netAmount              Decimal?  @map("net_amount")
+  isClosed               Boolean   @default(false) @map("is_closed")
+  closedBy               String?   @map("closed_by")
+  closedAt               DateTime? @map("closed_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  closedByUser           User?     @relation("SettlementCloser", fields: [closedBy], references: [id])
+  producer               User      @relation(fields: [producerId], references: [id])
+  tenant                 Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@unique([producerId, week])
+  @@map("settlements")
+}
+
+enum Role {
+  producer
+  consumer
+  captain
+  repartidor
+  admin
+}
+
+enum UnitType {
+  weight_fixed
+  weight_variable
+  bunch
+  unit
+}
+
+enum SeasonStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  delivered
+  cancelled
+}
+
+enum IncidentType {
+  overripe
+  underweight
+  wrong_item
+}
+
+enum QrType {
+  delivery
+  pickup
+}
+
+enum EventType {
+  planting
+  frost
+  pest
+  harvest
+  other
+}
