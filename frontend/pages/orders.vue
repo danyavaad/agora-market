@@ -152,6 +152,8 @@
 import BentoCard from '~/components/BentoCard.vue'
 
 const auth = useAuth()
+const toast = useToast()
+
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase || 'http://localhost:3001'
 const tenantId = auth.user?.tenantId || 'nodo-caceres-id'
@@ -218,29 +220,34 @@ const submitReview = async () => {
         })
         if (error.value) throw new Error(error.value.message)
         
-        alert('¡Gracias por tu valoración!')
+        toast.success('¡Gracias por tu valoración! 🌿')
         reviewingItem.value = null
         await fetchOrders() // Refresh to hide review button if added logic
     } catch (e) {
-        alert('Error al enviar la valoración')
+        toast.error('Error al enviar la valoración')
     }
 }
-const cancelOrder = async (id: string) => {
-    if (!confirm('¿Seguro que quieres cancelar este pedido? Se devolverá el stock al productor.')) return
-    try {
-        await $fetch(`${apiBase}/tenants/${tenantId}/market/orders/${id}`, {
-            method: 'DELETE',
-            headers: { 
-              'Authorization': `Bearer ${auth.token}`,
-              'x-tenant-id': tenantId
+const cancelOrder = (id: string) => {
+    toast.confirm({
+        title: '¿Cancelar Pedido?',
+        message: 'Se devolverá el stock al productor y no podrás deshacer esta acción.',
+        actionLabel: 'Sí, Cancelar',
+        onAction: async () => {
+            try {
+                await $fetch(`${apiBase}/tenants/${tenantId}/market/orders/${id}`, {
+                    method: 'DELETE',
+                    headers: { 
+                        'Authorization': `Bearer ${auth.token}`,
+                        'x-tenant-id': tenantId
+                    }
+                })
+                toast.success('Pedido cancelado con éxito 🗑️', '¡Todo listo!')
+                await fetchOrders()
+            } catch (e: any) {
+                console.error('Cancel order error:', e)
+                toast.error('Error al cancelar el pedido: ' + (e.data?.message || 'Error desconocido'), 'Vaya...')
             }
-        })
-        
-        alert('Pedido cancelado con éxito')
-        await fetchOrders()
-    } catch (e: any) {
-        console.error('Cancel order error:', e)
-        alert('Error al cancelar el pedido: ' + (e.data?.message || 'Error desconocido'))
-    }
+        }
+    })
 }
 </script>

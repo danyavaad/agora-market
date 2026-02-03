@@ -30,7 +30,6 @@ export class ChatService {
     }
 
     async getMyConversations(tenantId: string, userId: string) {
-        // Simple distinct receiver/sender logic
         const messages = await this.prisma.chatMessage.findMany({
             where: {
                 tenantId,
@@ -43,18 +42,46 @@ export class ChatService {
             orderBy: { createdAt: 'desc' }
         });
 
-        // Group by participant
         const conversations = new Map();
         for (const m of messages) {
             const partner = m.senderId === userId ? m.receiver : m.sender;
+
             if (!conversations.has(partner.id)) {
                 conversations.set(partner.id, {
                     partner,
                     lastMessage: m.content,
-                    createdAt: m.createdAt
+                    createdAt: m.createdAt,
+                    unreadCount: 0
                 });
+            }
+
+            // Increment unread count if the user is the receiver and message is unread
+            if (m.receiverId === userId && !m.isRead) {
+                conversations.get(partner.id).unreadCount++;
             }
         }
         return Array.from(conversations.values());
+    }
+
+    async getUnreadTotal(tenantId: string, userId: string) {
+        return this.prisma.chatMessage.count({
+            where: {
+                tenantId,
+                receiverId: userId,
+                isRead: false
+            }
+        });
+    }
+
+    async markAsRead(tenantId: string, userId: string, partnerId: string) {
+        return this.prisma.chatMessage.updateMany({
+            where: {
+                tenantId,
+                senderId: partnerId,
+                receiverId: userId,
+                isRead: false
+            },
+            data: { isRead: true }
+        });
     }
 }

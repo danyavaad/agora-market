@@ -171,15 +171,31 @@
                 </div>
                 
                 <div v-else>
-                    <ul class="space-y-5 mb-8 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
-                        <li v-for="item in cartStore.items" :key="item.productId" class="flex justify-between items-start text-sm group p-3 rounded-2xl hover:bg-white/5 transition-all">
-                            <div class="max-w-[160px]">
-                                <p class="font-bold text-white/90 leading-tight">{{ item.name }}</p>
+                    <div v-if="!isCartExpanded && cartStore.items.length > 5" class="mb-8 p-4 bg-white/5 rounded-2xl border border-white/10">
+                       <p class="text-[10px] text-white/60 leading-relaxed italic mb-4">
+                          {{ cartStore.items.slice(0, 3).map(i => `${i.name} "${i.qty}"`).join(', ') }} y {{ cartStore.items.length - 3 }} más...
+                       </p>
+                       <button @click="isCartExpanded = true" class="text-[9px] font-black text-basil-green-light uppercase tracking-[0.2em] hover:underline">Ver detalle completo</button>
+                    </div>
+
+                    <ul v-else class="space-y-5 mb-8 overflow-y-auto pr-2 custom-scrollbar" :class="isCartExpanded ? 'max-h-[60vh]' : 'max-h-[40vh]'">
+                        <li v-for="item in cartStore.items" :key="item.productId" class="flex justify-between items-start text-sm group p-3 rounded-2xl hover:bg-white/5 transition-all gap-3">
+                            <div class="w-10 h-10 rounded-xl overflow-hidden bg-white/5 flex items-center justify-center flex-shrink-0 border border-white/5">
+                               <img v-if="item.image && !failedImages.has(item.productId)" 
+                                    :src="item.image.startsWith('http') ? item.image : apiBase + item.image" 
+                                    @error="onImageError(item.productId)"
+                                    class="w-full h-full object-cover" />
+                               <span v-else class="text-xl">{{ getEmoji(item.name) }}</span>
+                            </div>
+                            <div class="flex-grow min-w-0">
+                                <p class="font-bold text-white/90 leading-tight truncate">{{ item.name }}</p>
                                 <p class="text-basil-green-light text-[10px] uppercase font-bold tracking-widest mt-1">{{ item.qty }} x {{ item.price }} €</p>
                             </div>
-                            <span class="font-serif font-bold text-white text-lg">{{ (item.qty * item.price).toFixed(2) }}€</span>
+                            <span class="font-serif font-bold text-white text-lg flex-shrink-0">{{ (item.qty * item.price).toFixed(2) }}€</span>
                         </li>
                     </ul>
+
+                    <button v-if="isCartExpanded" @click="isCartExpanded = false" class="w-full py-2 text-[9px] font-black text-white/20 uppercase tracking-[0.2em] hover:text-white mb-6">Contraer listado</button>
                     
                     <div class="border-t border-white/5 pt-6 mb-8">
                         <div class="flex justify-between items-center">
@@ -269,6 +285,8 @@ import BentoCard from '~/components/BentoCard.vue'
 import SocialFeed from '~/components/SocialFeed.vue'
 
 const auth = useAuth()
+const toast = useToast()
+
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase || 'http://localhost:3001'
 const tenantId = auth.user?.tenantId || 'nodo-caceres-id'
@@ -278,6 +296,8 @@ const submitting = ref(false)
 const products = ref<any[]>([])
 const searchQuery = ref('')
 const view = ref('products')
+const isCartExpanded = ref(false)
+const failedImages = ref(new Set<string>())
 
 const filteredProducts = computed(() => {
   if (!products.value) return []
@@ -302,25 +322,27 @@ const loadingReviews = ref(false)
 const getEmoji = (name: string) => {
   const n = name.toLowerCase()
   if (n.includes('miel')) return '🍯'
-  if (n.includes('miel') && n.includes('silvestre')) return '🐝'
+  if (n.includes('tomate')) return '🍅'
+  if (n.includes('rábano') || n.includes('rabano')) return '🏮'
+  if (n.includes('zanahoria')) return '🥕'
   if (n.includes('broccoli') || n.includes('brócoli')) return '🥦'
-  if (n.includes('carrot') || n.includes('zanahoria')) return '🥕'
-  if (n.includes('tomato') || n.includes('tomate')) return '🍅'
   if (n.includes('berenjena')) return '🍆'
-  if (n.includes('calabacín')) return '🥒'
+  if (n.includes('calabacín') || n.includes('calabacin')) return '🥒'
   if (n.includes('pimiento')) return '🫑'
-  if (n.includes('coliflor')) return '💮'
-  if (n.includes('espárrago')) return '🎋'
-  if (n.includes('judía')) return '🫘'
-  if (n.includes('patata')) return '🥔'
-  if (n.includes('batata')) return '🍠'
-  if (n.includes('cebolla')) return '🧅'
   if (n.includes('ajo')) return '🧄'
-  if (n.includes('acelga') || n.includes('espinaca') || n.includes('kale') || n.includes('rúcula')) return '🥬'
+  if (n.includes('cebolla')) return '🧅'
   if (n.includes('puerro')) return '🎋'
-  if (n.includes('chirivía')) return '🥕' // Looks similar
-  if (n.includes('rábano')) return '🎈'
+  if (n.includes('acelga') || n.includes('espinaca') || n.includes('kale') || n.includes('rúcula') || n.includes('lechuga')) return '🥬'
+  if (n.includes('patata')) return '🥔'
+  if (n.includes('seta') || n.includes('hongo')) return '🍄'
+  if (n.includes('huevo')) return '🥚'
+  if (n.includes('queso')) return '🧀'
+  if (n.includes('pan')) return '🥖'
   return '🥗'
+}
+
+const onImageError = (id: string) => {
+  failedImages.value.add(id)
 }
 
 const formatQty = (val: any) => {
@@ -385,10 +407,10 @@ const checkout = async () => {
             headers: { 'Authorization': `Bearer ${auth.token}` }
         })
         
-        alert('¡Pedido realizado con éxito! 🥦')
+        toast.success('¡Pedido realizado con éxito! 🥦')
         cartStore.clear()
     } catch (e: any) {
-        alert('Error al realizar el pedido: ' + (e.data?.message || e.message))
+        toast.error('Error al realizar el pedido: ' + (e.data?.message || e.message))
         console.error(e)
     } finally {
         submitting.value = false

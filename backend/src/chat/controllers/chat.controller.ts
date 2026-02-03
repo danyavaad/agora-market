@@ -26,6 +26,25 @@ export class ChatController {
     }
 
     @UseGuards(JwtAuthGuard)
+    @Get('unread-total')
+    async getUnreadTotal(
+        @Param('tenantId') tenantId: string,
+        @Request() req: any
+    ) {
+        return { total: await this.chatService.getUnreadTotal(tenantId, req.user.userId) };
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Post('conversation/:partnerId/read')
+    async markAsRead(
+        @Param('tenantId') tenantId: string,
+        @Param('partnerId') partnerId: string,
+        @Request() req: any
+    ) {
+        return this.chatService.markAsRead(tenantId, req.user.userId, partnerId);
+    }
+
+    @UseGuards(JwtAuthGuard)
     @Post('send')
     async send(
         @Param('tenantId') tenantId: string,

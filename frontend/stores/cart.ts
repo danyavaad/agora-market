@@ -31,7 +31,8 @@ export const useCartStore = defineStore('cart', {
                         name: product.name,
                         price: product.estimatedPricePerUnit || product.pricePerKg || product.pricePerBunch || 2.50,
                         qty: newQty,
-                        unitType: product.unitType
+                        unitType: product.unitType,
+                        image: (product.marketState?.offerPhotos?.length > 0 ? product.marketState.offerPhotos[0] : (product.imageUrl || null))
                     })
                 }
             }

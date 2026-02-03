@@ -83,6 +83,7 @@ const password = ref('')
 const error = ref('')
 const loading = ref(false)
 const auth = useAuth()
+const toast = useToast()
 const router = useRouter()
 
 const handleLogin = async () => {
@@ -98,7 +99,8 @@ const handleLogin = async () => {
     } else {
       router.push('/shop')
     }
-  } catch (e) {
+    } catch (e) {
+    toast.error('Credenciales no válidas')
     error.value = 'Credenciales no válidas'
   } finally {
     loading.value = false

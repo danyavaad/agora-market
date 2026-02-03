@@ -16,12 +16,14 @@ interface User {
 interface AuthState {
     token: string | null;
     user: User | null;
+    isInitialized: boolean;
 }
 
 export const useAuth = defineStore('auth', {
     state: (): AuthState => ({
         token: null,
         user: null,
+        isInitialized: false,
     }),
     getters: {
         isAuthenticated: (state) => !!state.token,
@@ -32,10 +34,15 @@ export const useAuth = defineStore('auth', {
             // Hydrate from localStorage
             if (typeof window !== 'undefined') {
                 const token = localStorage.getItem('auth_token');
+                const user = localStorage.getItem('auth_user');
                 if (token) {
                     this.setToken(token);
                 }
+                if (user) {
+                    this.user = JSON.parse(user);
+                }
             }
+            this.isInitialized = true;
         },
         setToken(token: string) {
             this.token = token;

@@ -29,12 +29,12 @@ export class OrdersService {
             where: {
                 tenantId,
                 offers: {
-                    some: { week: week }
+                    some: { week: week, isConfirmed: true }
                 }
             },
             include: {
                 offers: {
-                    where: { week: week },
+                    where: { week: week, isConfirmed: true },
                     include: { producer: true }
                 }
             }
@@ -105,7 +105,7 @@ export class OrdersService {
                 },
                 offers: undefined
             };
-        });
+        }).filter(p => p.marketState.totalAvailableKg > 0 || p.marketState.totalAvailableUnits > 0);
     }
 
     // 2. Create Order (Basket)
@@ -395,6 +395,8 @@ export class OrdersService {
 
             // 1. Restore Stock
             for (const item of order.items) {
+                if (!item.assignedToProducerId) continue;
+
                 const offer = await tx.offer.findUnique({
                     where: {
                         producerId_productId_week: {

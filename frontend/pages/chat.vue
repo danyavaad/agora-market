@@ -19,14 +19,17 @@
            <button v-for="c in conversations" :key="c.partner.id"
                    @click="selectConversation(c.partner.id)"
                    :class="activePartnerId === c.partner.id ? 'bg-basil-green/20 border-basil-green/40' : 'hover:bg-white/5 border-transparent'"
-                   class="w-full text-left p-5 rounded-3xl border transition-all group">
+                   class="w-full text-left p-5 rounded-3xl border transition-all group relative">
               <div class="flex items-center gap-4">
                  <div class="w-10 h-10 rounded-full bg-basil-green/10 flex items-center justify-center font-bold text-basil-green-light shadow-inner">
                     {{ c.partner.name.substring(0, 1) }}
                  </div>
-                 <div class="overflow-hidden">
+                 <div class="overflow-hidden flex-grow">
                     <p class="font-bold text-white/90 truncate">{{ c.partner.name }}</p>
                     <p class="text-[10px] text-white/30 truncate">{{ c.lastMessage }}</p>
+                 </div>
+                 <div v-if="c.unreadCount > 0" class="bg-tomato-red text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-lg">
+                    {{ c.unreadCount }}
                  </div>
               </div>
            </button>
@@ -112,10 +115,10 @@ onUnmounted(() => {
 
 const fetchConversations = async () => {
     try {
-        const { data } = await useFetch(`${apiBase}/tenants/${tenantId}/chat/conversations`, {
+        const data = await $fetch(`${apiBase}/tenants/${tenantId}/chat/conversations`, {
             headers: { 'Authorization': `Bearer ${auth.token}` }
         })
-        conversations.value = (data.value as any[]) || []
+        conversations.value = (data as any[]) || []
     } catch (e) {
         console.error('Fetch conversations error:', e)
     }
@@ -123,15 +126,27 @@ const fetchConversations = async () => {
 
 const selectConversation = async (id: string) => {
     activePartnerId.value = id
-    // Find partner in conversations or fetch
+    
+    // Find partner in conversations
     const existing = conversations.value.find(c => c.partner.id === id)
     if (existing) {
         partner.value = existing.partner
     } else {
-        // Mocking partner fetch for new conversations
+        // If not in list, we might need to fetch user details (future)
         partner.value = { id, name: 'Cargando...' }
     }
     
+    // Mark as read
+    try {
+        await $fetch(`${apiBase}/tenants/${tenantId}/chat/conversation/${id}/read`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${auth.token}` }
+        })
+        fetchConversations() // Update list to clear badge
+    } catch (e) {
+        console.error('Mark as read error:', e)
+    }
+
     await fetchMessages()
     
     // Start polling
@@ -142,10 +157,10 @@ const selectConversation = async (id: string) => {
 const fetchMessages = async () => {
     if (!activePartnerId.value) return
     try {
-        const { data } = await useFetch(`${apiBase}/tenants/${tenantId}/chat/conversation/${activePartnerId.value}`, {
+        const data = await $fetch(`${apiBase}/tenants/${tenantId}/chat/conversation/${activePartnerId.value}`, {
             headers: { 'Authorization': `Bearer ${auth.token}` }
         })
-        messages.value = (data.value as any[]) || []
+        messages.value = (data as any[]) || []
         
         // Scroll to bottom
         nextTick(() => {
@@ -163,7 +178,7 @@ const sendMessage = async () => {
     newMessage.value = ''
     
     try {
-        await useFetch(`${apiBase}/tenants/${tenantId}/chat/send`, {
+        await $fetch(`${apiBase}/tenants/${tenantId}/chat/send`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${auth.token}` },
             body: { receiverId: activePartnerId.value, content }
