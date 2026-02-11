@@ -89,7 +89,7 @@
 
 <script setup lang="ts">
 const config = useRuntimeConfig()
-const apiBase = config.public.apiBase || 'http://localhost:3001'
+const apiBase = config.public.apiBase || '/api'
 const auth = useAuth()
 const route = useRoute()
 const tenantId = auth.user?.tenantId || 'nodo-caceres-id'
@@ -116,7 +116,10 @@ onUnmounted(() => {
 const fetchConversations = async () => {
     try {
         const data = await $fetch(`${apiBase}/tenants/${tenantId}/chat/conversations`, {
-            headers: { 'Authorization': `Bearer ${auth.token}` }
+            headers: { 
+                'Authorization': `Bearer ${auth.token}`,
+                'x-tenant-id': tenantId
+            }
         })
         conversations.value = (data as any[]) || []
     } catch (e) {
@@ -140,7 +143,10 @@ const selectConversation = async (id: string) => {
     try {
         await $fetch(`${apiBase}/tenants/${tenantId}/chat/conversation/${id}/read`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${auth.token}` }
+            headers: { 
+                'Authorization': `Bearer ${auth.token}`,
+                'x-tenant-id': tenantId
+            }
         })
         fetchConversations() // Update list to clear badge
     } catch (e) {
@@ -158,7 +164,10 @@ const fetchMessages = async () => {
     if (!activePartnerId.value) return
     try {
         const data = await $fetch(`${apiBase}/tenants/${tenantId}/chat/conversation/${activePartnerId.value}`, {
-            headers: { 'Authorization': `Bearer ${auth.token}` }
+            headers: { 
+                'Authorization': `Bearer ${auth.token}`,
+                'x-tenant-id': tenantId
+            }
         })
         messages.value = (data as any[]) || []
         
@@ -180,7 +189,10 @@ const sendMessage = async () => {
     try {
         await $fetch(`${apiBase}/tenants/${tenantId}/chat/send`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${auth.token}` },
+            headers: { 
+                'Authorization': `Bearer ${auth.token}`,
+                'x-tenant-id': tenantId
+            },
             body: { receiverId: activePartnerId.value, content }
         })
         await fetchMessages()

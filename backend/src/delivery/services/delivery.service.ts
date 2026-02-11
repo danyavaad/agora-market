@@ -1,3 +1,9 @@
+/*
+ * File: delivery.service.ts
+ * Purpose: Lógica de logística, rutas de reparto y pooling geográfico.
+ * Dependencies: PrismaService
+ * Domain: Logística
+ */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 

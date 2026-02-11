@@ -1,3 +1,10 @@
+/*
+ * File: prisma.service.ts
+ * Purpose: Cliente de base de datos Prisma para manejo de la persistencia de datos.
+ * Dependencies: PrismaClient
+ * Domain: Data Access
+ */
+
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 

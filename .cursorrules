@@ -12,6 +12,7 @@
 *   🔒 **Encapsulamiento:** Cada dominio de negocio debe estar aislado.
 *   📐 **Tipado Estricto:** **Prohibido** el uso de `any`. Todo debe tener interfaces o tipos.
 *   🛡️ **Validación:** No se procesan datos que no pasen por un DTO o esquema de validación.
+*   🔍 **Auditoría de Seguridad:** Antes de proponer cambios, analiza si existe algún riesgo de seguridad (ej. puertos expuestos, credenciales hardcoded, falta de cifrado) y **AVISA** al usuario inmediatamente antes de proceder.
 *   📝 **Documentación:** Todo archivo nuevo debe llevar el encabezado estándar.
 
 ---
@@ -65,24 +66,51 @@ Para evitar el desorden en la carpeta `components/`, organizamos por nivel de co
 *   **Archivos de Lógica:** `kebab-case` (ej. `auth-middleware.ts`).
 
 ### 🔹 Estándar de Encabezado de Archivo
-Todo archivo debe iniciar con el siguiente bloque:
+Todo archivo debe iniciar con el siguiente bloque, explicando funcionalidad y diseño:
 
 ```typescript
 /*
  * File: [Nombre del archivo]
- * Purpose: [Descripción breve de qué hace]
- * Dependencies: [Lista de dependencias críticas o servicios que usa]
- * Domain: [Nombre del dominio: ej. Ventas, Usuarios, Logística]
+ * Purpose: [Descripción funcional detallada]
+ * Design: [Explicación de decisiones de diseño UI/UX o Arquitectura]
+ * Dependencies: [Lista de dependencias críticas]
+ * Domain: [Dominio: Ventas, Logística, etc]
  */
 ```
+
+### 🔹 Comentarios en Código
+*   **Explicativos:** Cada bloque lógico importante debe tener un comentario previo explicando QUÉ hace y POR QUÉ, 
+*   **No Obvios:** Evita comentarios redundantes ("suma 1 a i"), enfócate en la intención de negocio.
 
 ---
 
 ## 5. ✅ Calidad, Seguridad y Escalabilidad
 
 *   **JSDoc:** Documenta todos los métodos públicos de los servicios explicando los parámetros y el retorno.
+*   🚨 **Alertas de Seguridad:** Es **OBLIGATORIO** advertir al usuario sobre cualquier agujero de seguridad potencial que se detecte en la configuración (Docker, variables de entorno, permisos de archivos de persistencia, etc.).
 *   **Error Handling:** El backend debe devolver códigos de error semánticos (ej. `ERR_STOCK_INSUFFICIENT`) y el frontend debe capturarlos mediante un interceptor global.
+*   🖼️ **Estándar de Imágenes (OBLIGATORIO):**
+    *   **Formato:** Siempre usar **WebP** para ahorro de ancho de banda.
+    *   **Dimensiones:** Máximo **1000px** (ancho o alto).
+    *   **Calidad:** 80% (Sharp).
+    *   **Frontend:** Aplicar siempre `loading="lazy"` y anteponer `apiBase` para rutas relativas (`src.startsWith('http') ? src : apiBase + src`).
 *   **Design Tokens:** Colores, espaciados y tipografías deben leerse de `tailwind.config.ts` o un archivo de tokens centralizado para asegurar consistencia visual.
 *   **Testing:**
-    *   🧪 **Backend:** Unit tests para cada Service.
+    *   🧪 **Backend:** Unit tests for cada Service.
     *   🖼️ **Frontend:** Tests de componentes para los Organisms.
+
+---
+
+## 7. 📚 Contexto del Proyecto y Especificaciones
+Es **OBLIGATORIO** consultar estos archivos antes de proponer cambios estructurales para asegurar la alineación con la visión original:
+
+- 🎨 **Diseño:** [00-DESIGN_SPEC.md](file:///home/dan/huertify/frontend/00-DESIGN_SPEC.md) - Estética y UX.
+- 🗄️ **Base de Datos:** [01-DATABASE_SCHEMA.md](file:///home/dan/huertify/backend/01-DATABASE_SCHEMA.md) - Relaciones y RLS.
+- 🛣️ **Roadmap:** [02-ROADMAP_AND_FLOWS.md](file:///home/dan/huertify/backend/02-ROADMAP_AND_FLOWS.md) - Flujos lógicos.
+- 📑 **Especificaciones:** [03-MASTER_SPECIFICATIONS.md](file:///home/dan/huertify/backend/03-MASTER_SPECIFICATIONS.md) - El documento maestro.
+
+---
+
+## 6. 🔮 Futuras Mejoras
+*   **TODO List:** Las propuestas de mejoras técnicas (refactors complejos, nuevas features no prioritarias como WebSockets) deben registrarse en **`TODO_Huertify.md`** en la raíz del proyecto.
+

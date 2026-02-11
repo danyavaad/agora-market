@@ -69,6 +69,10 @@
 <script setup lang="ts">
 const route = useRoute()
 const auth = useAuth()
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase || '/api'
+const tenantId = auth.user?.tenantId || 'nodo-caceres-id'
+
 const loading = ref(true)
 const error = ref('')
 const myProducts = ref<any[]>([])
@@ -82,15 +86,19 @@ const fetchData = async () => {
     loading.value = true
     try {
         const token = auth.token;
-        const tenantId = 'default-tenant-id'; // ToDo: Get from auth/config
         
         // 1. Allocations
-        const { data: allocData, error: allocError } = await useFetch(`http://localhost:3001/tenants/${tenantId}/seasons/${route.params.id}/allocations`)
+        const { data: allocData, error: allocError } = await useFetch(`${apiBase}/tenants/${tenantId}/seasons/${route.params.id}/allocations`, {
+            headers: { 'x-tenant-id': tenantId }
+        })
         if (allocError.value) throw new Error(allocError.value.message)
         
         // 2. My Offers
-         const { data: offersData, error: offersError } = await useFetch(`http://localhost:3001/tenants/${tenantId}/offers/my-offers`, {
-             headers: { Authorization: `Bearer ${token}` }
+         const { data: offersData, error: offersError } = await useFetch(`${apiBase}/tenants/${tenantId}/offers/my-offers`, {
+             headers: { 
+                 'Authorization': `Bearer ${token}`,
+                 'x-tenant-id': tenantId
+             }
          })
          // If 404/error on offers, just assume empty? 
          // For now let's hope it returns empty array []
@@ -150,10 +158,13 @@ const saveOffer = async (product: any) => {
              payload.availableQuantityKg = null;
          }
          
-         const { data, error } = await useFetch(`http://localhost:3001/tenants/${tenantId}/offers`, {
+         const { data, error } = await useFetch(`${apiBase}/tenants/${tenantId}/offers`, {
              method: 'POST',
              body: payload,
-             headers: { Authorization: `Bearer ${token}` }
+             headers: { 
+                 'Authorization': `Bearer ${token}`,
+                 'x-tenant-id': tenantId
+             }
          })
          
          if (error.value) throw new Error(error.value.message)

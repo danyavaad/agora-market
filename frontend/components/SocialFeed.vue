@@ -12,7 +12,7 @@
       <div v-for="post in posts" :key="post.id" class="bg-forest-dark-card rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl transition-all hover:border-white/20 group">
         <!-- Photo -->
         <div v-if="post.photoUrl" class="h-64 sm:h-80 relative overflow-hidden">
-          <img :src="post.photoUrl" alt="Huerta Story" class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105">
+          <img :src="post.photoUrl.startsWith('http') ? post.photoUrl : apiBase + post.photoUrl" alt="Huerta Story" class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105">
           <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
           
           <!-- Badge overlay -->

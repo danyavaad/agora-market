@@ -67,7 +67,7 @@
                 <div class="flex flex-wrap gap-2">
                   <div v-for="(producerId, index) in season.producerRotation" :key="producerId" 
                        class="bg-paper-beige/80 border border-earth-brown/5 px-3 py-1.5 rounded-lg flex items-center gap-2">
-                    <span class="text-[10px] font-bold text-basil-green">{{ index + 1 }}º</span>
+                    <span class="text-[10px] font-bold text-basil-green">{{ (index as number) + 1 }}º</span>
                     <span class="text-xs font-semibold text-earth-brown">ID: {{ producerId.substring(0, 8) }}...</span>
                   </div>
                 </div>
@@ -91,7 +91,7 @@
 import BentoCard from '~/components/BentoCard.vue'
 
 const config = useRuntimeConfig()
-const apiBase = config.public.apiBase || 'http://localhost:3001'
+const apiBase = config.public.apiBase || '/api'
 const tenantId = 'nodo-caceres-id'
 
 // State

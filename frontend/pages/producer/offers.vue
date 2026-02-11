@@ -22,6 +22,7 @@
       >
         {{ tab.label }}
       </button>
+
     </div>
 
     <div class="relative overflow-hidden">
@@ -62,6 +63,7 @@
                         <img v-if="(offer.product.imageUrl || offer.photoUrl) && !failedImages.has(offer.id)" 
                              :src="(offer.photoUrl || offer.product.imageUrl).startsWith('http') ? (offer.photoUrl || offer.product.imageUrl) : apiBase + (offer.photoUrl || offer.product.imageUrl)" 
                              :alt="offer.product.name" 
+                             loading="lazy"
                              @error="onImageError(offer.id)"
                              class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                         <span v-else class="text-2xl drop-shadow-sm">{{ getEmoji(offer.product.name) }}</span>
@@ -69,21 +71,35 @@
                      <div>
                         <span class="font-bold text-white group-hover:text-basil-green-light transition-colors">{{ offer.product.name }}</span>
                         <div class="flex items-center gap-2 mt-1">
-                           <span class="text-[10px] font-black text-basil-green-light bg-basil-green/10 px-2 py-0.5 rounded-md uppercase tracking-widest">{{ offer.availableQuantityKg || offer.availableUnits }} {{ offer.product.unitType === 'bunch' ? 'uds' : 'kg' }}</span>
+                           <span class="text-[10px] font-black text-basil-green-light bg-basil-green/10 px-2 py-0.5 rounded-md uppercase tracking-widest">{{ offer.availableQuantityKg || offer.availableUnits }} {{ (offer.product.unitType === 'bunch' || offer.product.unitType === 'unit') ? 'uds' : 'kg' }}</span>
                         </div>
                      </div>
                   </div>
-                  <button @click="removeOffer(offer.id)" class="w-10 h-10 flex items-center justify-center rounded-xl bg-tomato-red/5 text-tomato-red/40 hover:bg-tomato-red/20 hover:text-tomato-red transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  </button>
+                  
+                  <div class="flex flex-col items-end mr-4">
+                     <span class="text-[9px] font-black text-white/30 uppercase tracking-widest mb-1">Reservado</span>
+                     <span class="text-sm font-bold text-white">
+                        {{ (offer.product.unitType === 'bunch' || offer.product.unitType === 'unit') ? (offer.reservedUnits || 0) : (offer.reservedQuantityKg || 0).toFixed(1) }} {{ (offer.product.unitType === 'bunch' || offer.product.unitType === 'unit') ? 'uds' : 'kg' }}
+                     </span>
+                  </div>
+
+                  <div class="flex gap-2">
+                    <button @click="editOffer(offer)" class="w-10 h-10 flex items-center justify-center rounded-xl bg-basil-green/5 text-basil-green-light hover:bg-basil-green/20 hover:text-basil-green transition-all">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    </button>
+                    <button @click="removeOffer(offer.id)" class="w-10 h-10 flex items-center justify-center rounded-xl bg-tomato-red/5 text-tomato-red/40 hover:bg-tomato-red/20 hover:text-tomato-red transition-all">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
                </div>
             </div>
           </BentoCard>
         </div>
 
         <!-- Tab: Añadir al Puesto -->
-        <div v-else-if="activeTab === 'add'" class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          <BentoCard title="Catálogo de Productos">
+        <div v-else-if="activeTab === 'add'" class="space-y-6">
+          <!-- Product Catalogue (hidden when product selected) -->
+          <BentoCard v-if="!selectedProduct" title="Catálogo de Productos">
             <!-- Search Bar -->
             <div class="mb-6 relative">
                <input 
@@ -103,32 +119,30 @@
             <div v-else class="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
               <div v-for="product in filteredCatalogue" :key="product.id" 
                    @click="selectProduct(product)"
-                   class="p-4 rounded-2xl border transition-all cursor-pointer group flex items-center justify-between"
-                   :class="isProductSelected(product.id) ? 'border-basil-green bg-basil-green/10 shadow-lg' : 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10'">
+                   class="p-4 rounded-2xl border transition-all cursor-pointer group flex items-center justify-between border-white/5 bg-white/5 hover:border-basil-green/50 hover:bg-basil-green/5">
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 rounded-xl overflow-hidden bg-basil-green/5 flex items-center justify-center border border-white/5">
                      <img v-if="product.imageUrl && !failedImages.has(product.id)" 
-                          :src="product.imageUrl" 
+                          :src="product.imageUrl.startsWith('http') ? product.imageUrl : apiBase + product.imageUrl" 
                           :alt="product.name" 
+                          loading="lazy"
                           @error="onImageError(product.id)"
                           class="w-full h-full object-cover" />
                      <span v-else class="text-2xl drop-shadow-md">{{ getEmoji(product.name) }}</span>
                   </div>
                   <div>
                     <p class="font-bold text-white/90 group-hover:text-white">{{ product.name }}</p>
-                    <p class="text-[9px] text-basil-green-light uppercase font-black tracking-widest mt-1">Precio: {{ product.pricePerKg || product.pricePerBunch }}€ / {{ product.unitType === 'bunch' ? 'Ud' : 'Kg' }}</p>
+                    <p class="text-[9px] text-basil-green-light uppercase font-black tracking-widest mt-1">Precio: {{ product.pricePerKg || product.pricePerBunch }}€ / {{ (product.unitType === 'bunch' || product.unitType === 'unit') ? 'Ud' : 'Kg' }}</p>
                   </div>
                 </div>
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-white/5 text-white/20"
-                     :class="isProductSelected(product.id) ? 'bg-basil-green text-basil-green-dark' : 'group-hover:text-white group-hover:bg-white/10'">
-                  <svg v-if="isProductSelected(product.id)" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                  <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" /></svg>
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-white/5 text-white/20 group-hover:bg-basil-green group-hover:text-white">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" /></svg>
                 </div>
               </div>
             </div>
           </BentoCard>
 
-          <!-- Selected Product Form -->
+          <!-- Selected Product Form (shown when product selected) -->
           <transition 
             enter-active-class="transition duration-500 ease-out"
             enter-from-class="opacity-0 translate-y-8"
@@ -138,7 +152,11 @@
               <BentoCard title="Ajustes de la Oferta">
                 <form @submit.prevent="submitOffer" class="space-y-8">
                   <div class="relative h-48 rounded-[2rem] overflow-hidden bg-white/5 border border-white/5 flex items-center justify-center group shadow-2xl">
-                      <img v-if="selectedProduct.imageUrl" :src="selectedProduct.imageUrl" :alt="selectedProduct.name" class="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-110" />
+                      <img v-if="selectedProduct.imageUrl" 
+                           :src="selectedProduct.imageUrl.startsWith('http') ? selectedProduct.imageUrl : apiBase + selectedProduct.imageUrl" 
+                           :alt="selectedProduct.name" 
+                           loading="lazy"
+                           class="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-700 group-hover:scale-110" />
                       <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
                       <div class="relative z-10 flex flex-col items-center">
                          <h3 class="text-3xl font-serif font-black text-white drop-shadow-xl text-center px-6">{{ selectedProduct.name }}</h3>
@@ -162,7 +180,7 @@
                             {{ form.quantity.toLocaleString('es-ES') }}
                           </div>
                           <div class="text-[9px] font-black text-basil-green-light uppercase tracking-[0.2em] mt-2 bg-basil-green/10 px-3 py-1 rounded-full">
-                            {{ selectedProduct.unitType === 'bunch' ? 'Unidades' : 'Kilogramos' }}
+                            {{ (selectedProduct.unitType === 'bunch' || selectedProduct.unitType === 'unit') ? 'Unidades' : 'Kilogramos' }}
                           </div>
                         </div>
 
@@ -202,7 +220,9 @@
 
                       <div v-if="form.photoUrl" class="mt-4 rounded-3xl overflow-hidden border border-white/10 bg-white/5 p-2 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                          <div class="relative group">
-                            <img :src="form.photoUrl.startsWith('http') || form.photoUrl.startsWith('data:') ? form.photoUrl : apiBase + form.photoUrl" class="w-full h-40 object-cover rounded-2xl" />
+                            <img :src="form.photoUrl.startsWith('http') || form.photoUrl.startsWith('data:') ? form.photoUrl : apiBase + form.photoUrl" 
+                                 loading="lazy"
+                                 class="w-full h-40 object-cover rounded-2xl" />
                             <button @click="form.photoUrl = ''" class="absolute top-3 right-3 p-2 bg-black/60 backdrop-blur-xl rounded-xl text-white/40 hover:text-tomato-red transition-all transform hover:scale-110 shadow-lg">✕</button>
                          </div>
                      </div>
@@ -216,20 +236,16 @@
                       <div v-else class="animate-spin rounded-full h-4 w-4 border-b-2 border-moss-green-dark"></div>
                     </button>
                     <button type="button" @click="selectedProduct = null" class="w-full py-4 text-[10px] text-white/20 font-black uppercase tracking-[0.2em] hover:text-white transition-colors">Cancelar Selección</button>
-                  </div>
-                </form>
-              </BentoCard>
-            </div>
-            <div v-else class="flex flex-col items-center justify-center h-full py-20 bg-white/5 border border-dashed border-white/10 rounded-[2.5rem] opacity-40">
-               <div class="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6 text-4xl">🧺</div>
-               <p class="text-xs uppercase font-black tracking-widest text-center px-10 leading-relaxed">Selecciona un producto del catálogo para configurar tu oferta</p>
-            </div>
-          </transition>
-        </div>
-      </transition>
-    </div>
-  </div>
-</template>
+                   </div>
+                 </form>
+               </BentoCard>
+             </div>
+           </transition>
+         </div>
+       </transition>
+     </div>
+   </div>
+ </template>
 
 <script setup lang="ts">
 import BentoCard from '~/components/BentoCard.vue'
@@ -237,7 +253,7 @@ import BentoCard from '~/components/BentoCard.vue'
 const config = useRuntimeConfig()
 const toast = useToast()
 
-const apiBase = config.public.apiBase || 'http://localhost:3001'
+const apiBase = config.public.apiBase || '/api'
 const auth = useAuth()
 const tenantId = auth.user?.tenantId || 'nodo-caceres-id'
 
@@ -291,7 +307,10 @@ const handleFileChange = async (event: Event) => {
       const data = await $fetch(`${apiBase}/tenants/${tenantId}/uploads/image`, {
         method: 'POST',
         body: formData,
-        headers: { 'Authorization': `Bearer ${auth.token}` }
+        headers: { 
+            'Authorization': `Bearer ${auth.token}`,
+            'x-tenant-id': tenantId
+        }
       }) as any
       
       form.value.photoUrl = data.url
@@ -359,15 +378,17 @@ const selectProduct = (product: any) => {
   form.value.photoUrl = ''
 }
 
-const isProductSelected = (id: string) => selectedProduct.value?.id === id
+
 
 const increment = () => {
-  const step = selectedProduct.value?.unitType === 'bunch' ? 1 : 0.5
+  const isDiscrete = selectedProduct.value?.unitType === 'bunch' || selectedProduct.value?.unitType === 'unit'
+  const step = isDiscrete ? 1 : 0.5
   form.value.quantity = Number((form.value.quantity + step).toFixed(1))
 }
 
 const decrement = () => {
-  const step = selectedProduct.value?.unitType === 'bunch' ? 1 : 0.5
+  const isDiscrete = selectedProduct.value?.unitType === 'bunch' || selectedProduct.value?.unitType === 'unit'
+  const step = isDiscrete ? 1 : 0.5
   if (form.value.quantity >= step) {
     form.value.quantity = Number((form.value.quantity - step).toFixed(1))
   } else {
@@ -413,11 +434,12 @@ const fetchMyOffers = async () => {
 const submitOffer = async () => {
   submitting.value = true
   try {
+    const isDiscrete = selectedProduct.value.unitType === 'bunch' || selectedProduct.value.unitType === 'unit'
     const payload = {
       productId: selectedProduct.value.id,
       week: targetWeekISO.value,
-      availableQuantityKg: selectedProduct.value.unitType !== 'bunch' ? form.value.quantity : undefined,
-      availableUnits: selectedProduct.value.unitType === 'bunch' ? form.value.quantity : undefined,
+      availableQuantityKg: !isDiscrete ? form.value.quantity : undefined,
+      availableUnits: isDiscrete ? form.value.quantity : undefined,
       photoUrl: form.value.photoUrl || undefined
     }
 
@@ -442,6 +464,18 @@ const submitOffer = async () => {
   } finally {
     submitting.value = false
   }
+}
+
+const editOffer = (offer: any) => {
+  selectedProduct.value = offer.product
+  form.value.quantity = offer.availableQuantityKg || offer.availableUnits || 0
+  form.value.photoUrl = offer.photoUrl || ''
+  activeTab.value = 'add'
+  
+  // Scroll to form nicely
+  setTimeout(() => {
+    window.scrollTo({ top: 300, behavior: 'smooth' })
+  }, 100)
 }
 
 const removeOffer = async (id: string) => {

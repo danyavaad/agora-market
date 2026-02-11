@@ -65,7 +65,7 @@
 import BentoCard from '~/components/BentoCard.vue'
 
 const config = useRuntimeConfig()
-const apiBase = config.public.apiBase || 'http://localhost:3001'
+const apiBase = config.public.apiBase || '/api'
 const auth = useAuth()
 const tenantId = auth.user?.tenantId || 'nodo-caceres-id'
 
@@ -90,7 +90,10 @@ const submitPost = async () => {
         const { error } = await useFetch(`${apiBase}/tenants/${tenantId}/feed`, {
             method: 'POST',
             body: form.value,
-            headers: { 'Authorization': `Bearer ${auth.token}` }
+            headers: { 
+                'Authorization': `Bearer ${auth.token}`,
+                'x-tenant-id': tenantId
+            }
         })
         if (error.value) throw new Error(error.value.message)
         

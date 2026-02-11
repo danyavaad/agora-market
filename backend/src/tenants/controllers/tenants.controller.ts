@@ -1,3 +1,9 @@
+/*
+ * File: tenants.controller.ts
+ * Purpose: Endpoints REST para la gestión de tenants.
+ * Dependencies: TenantsService
+ * Domain: Administración
+ */
 import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
 import { TenantsService } from '../services/tenants.service';
 

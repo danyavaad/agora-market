@@ -1,7 +1,8 @@
 /*
  * File: seasons.controller.ts
- * Purpose: REST API endpoints for Seasons management.
- * Dependencies: SeasonsService, CreateSeasonDto
+ * Purpose: Endpoints REST para la gestión de temporadas y prioridades (Draft).
+ * Dependencies: SeasonsService
+ * Domain: Temporadas
  */
 
 import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Request } from '@nestjs/common';

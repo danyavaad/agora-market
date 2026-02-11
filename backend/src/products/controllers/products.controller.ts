@@ -1,6 +1,8 @@
 /*
  * File: products.controller.ts
- * Purpose: REST API for product catalogue.
+ * Purpose: Controlador HTTP para operaciones relacionadas con productos.
+ * Dependencies: ProductsService
+ * Domain: Productos
  */
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { ProductsService } from '../services/products.service';

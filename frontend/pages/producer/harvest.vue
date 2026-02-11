@@ -99,7 +99,7 @@
 import BentoCard from '~/components/BentoCard.vue'
 
 const config = useRuntimeConfig()
-const apiBase = config.public.apiBase || 'http://localhost:3001'
+const apiBase = config.public.apiBase || '/api'
 const auth = useAuth()
 const tenantId = auth.user?.tenantId || 'nodo-caceres-id'
 
@@ -135,7 +135,10 @@ const fetchPickingList = async () => {
     loading.value = true
     try {
         const { data } = await useFetch(`${apiBase}/tenants/${tenantId}/market/picking-list?week=${currentWeekISO.value}`, {
-            headers: { 'Authorization': `Bearer ${auth.token}` }
+            headers: { 
+                'Authorization': `Bearer ${auth.token}`,
+                'x-tenant-id': tenantId
+            }
         })
         if (data.value) {
             pickingList.value = (data.value as any[]).map(item => ({
@@ -157,7 +160,10 @@ const updateWeight = async (item: any) => {
         const { error } = await useFetch(`${apiBase}/tenants/${tenantId}/market/harvest-weight/${item.id}`, {
             method: 'PATCH',
             body: { realWeightKg: Number(item.tempWeight) },
-            headers: { 'Authorization': `Bearer ${auth.token}` }
+            headers: { 
+                'Authorization': `Bearer ${auth.token}`,
+                'x-tenant-id': tenantId
+            }
         })
         if (error.value) throw new Error(error.value.message)
         item.actualWeightKg = item.tempWeight

@@ -1,11 +1,12 @@
 /*
  * File: orders.controller.ts
- * Purpose: REST API endpoints for Consumer Orders and Market.
- * Dependencies: OrdersService, CreateOrderDto
+ * Purpose: Endpoints REST para la gestión de pedidos y el mercado (Ágora).
+ * Dependencies: OrdersService
+ * Domain: Pedidos
  */
 
 import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, Query } from '@nestjs/common';
-import { OrdersService } from '../services/orders.service';
+import { OrdersService, ProducerDeliveryGroup } from '../services/orders.service';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
@@ -73,6 +74,25 @@ export class OrdersController {
         @Request() req: any
     ) {
         return this.ordersService.confirmPickup(tenantId, req.user.userId, qrToken);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get('producer-delivery/:producerId')
+    async getProducerPendingDeliveries(
+        @Param('tenantId') tenantId: string,
+        @Param('producerId') producerId: string
+    ): Promise<ProducerDeliveryGroup[]> {
+        return this.ordersService.getProducerPendingDeliveries(tenantId, producerId);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Post('confirm-producer-delivery')
+    async confirmProducerDelivery(
+        @Param('tenantId') tenantId: string,
+        @Body() body: { producerId: string, orderId: string },
+        @Request() req: any
+    ) {
+        return this.ordersService.confirmProducerDelivery(tenantId, body.producerId, body.orderId, req.user.userId);
     }
 
     @UseGuards(JwtAuthGuard)

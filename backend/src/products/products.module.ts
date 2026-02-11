@@ -1,3 +1,9 @@
+/*
+ * File: products.module.ts
+ * Purpose: Módulo para la gestión del catálogo de productos.
+ * Dependencies: PrismaModule
+ * Domain: Productos
+ */
 import { Module } from '@nestjs/common';
 import { ProductsController } from './controllers/products.controller';
 import { ProductsService } from './services/products.service';

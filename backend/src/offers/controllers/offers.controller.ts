@@ -1,7 +1,8 @@
 /*
  * File: offers.controller.ts
- * Purpose: REST API endpoints for Offers management.
- * Dependencies: OffersService, CreateOfferDto
+ * Purpose: Endpoints REST para la gestión de ofertas.
+ * Dependencies: OffersService
+ * Domain: Ofertas
  */
 
 import { Controller, Get, Post, Delete, Body, Param, UseGuards, Request, Query } from '@nestjs/common';

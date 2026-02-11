@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -13,15 +14,15 @@ model Tenant {
   currencyCode   String             @default("EUR") @map("currency_code")
   kmRate         Decimal            @default(0.30) @map("km_rate")
   createdAt      DateTime           @default(now()) @map("created_at")
+  chatMessages   ChatMessage[]
   credits        Credit[]
   deliveries     Delivery[]
   feedPosts      FeedPost[]
-  reviews        Review[]
-  chatMessages   ChatMessage[]
   offers         Offer[]
   orders         Order[]
   producerDrafts ProducerPriority[]
   products       Product[]
+  reviews        Review[]
   allocations    SeasonAllocation[]
   seasons        Season[]
   settlements    Settlement[]
@@ -39,10 +40,12 @@ model User {
   password            String?            @map("password_hash")
   phone               String?
   isActive            Boolean            @default(true) @map("is_active")
+  createdAt           DateTime           @default(now()) @map("created_at")
   address             String?
   latitude            Float?
   longitude           Float?
-  createdAt           DateTime           @default(now()) @map("created_at")
+  receivedMessages    ChatMessage[]      @relation("ReceivedMessages")
+  sentMessages        ChatMessage[]      @relation("SentMessages")
   credits             Credit[]
   confirmedDeliveries Delivery[]         @relation("DeliveryConfirmer")
   deliveries          Delivery[]         @relation("DeliveryProducer")
@@ -53,11 +56,9 @@ model User {
   confirmedPickups    Order[]            @relation("PickupConfirmer")
   producerDrafts      ProducerPriority[]
   qrTokens            QrToken[]
-  allocations         SeasonAllocation[]
   givenReviews        Review[]           @relation("ConsumerReviews")
   receivedReviews     Review[]           @relation("ProducerReviews")
-  sentMessages        ChatMessage[]      @relation("SentMessages")
-  receivedMessages    ChatMessage[]      @relation("ReceivedMessages")
+  allocations         SeasonAllocation[]
   closedSettlements   Settlement[]       @relation("SettlementCloser")
   settlements         Settlement[]
   tenant              Tenant             @relation(fields: [tenantId], references: [id])
@@ -72,24 +73,24 @@ model Product {
   latinName        String?            @map("latin_name")
   localName        String?            @map("local_name")
   unitType         UnitType           @map("unit_type")
-  unitDescription  String?            @map("unit_description")
   pricePerKg       Decimal?           @map("price_per_kg")
   minWeightKg      Decimal?           @map("min_weight_kg")
   maxWeightKg      Decimal?           @map("max_weight_kg")
   itemsPerBunchMin Int?               @map("items_per_bunch_min")
   itemsPerBunchMax Int?               @map("items_per_bunch_max")
   pricePerBunch    Decimal?           @map("price_per_bunch")
-  pricePerUnit     Decimal?           @map("price_per_unit")
   nutritionalInfo  Json?              @map("nutritional_info")
   recipes          Json?
   createdAt        DateTime           @default(now()) @map("created_at")
+  unitDescription  String?            @map("unit_description")
+  pricePerUnit     Decimal?           @map("price_per_unit")
   imageUrl         String?            @map("image_url")
   feedPosts        FeedPost[]
-  reviews          Review[]
   offers           Offer[]
   orderItems       OrderItem[]
   producerDrafts   ProducerPriority[]
   tenant           Tenant             @relation(fields: [tenantId], references: [id])
+  reviews          Review[]
   allocations      SeasonAllocation[]
 
   @@map("products")
@@ -156,8 +157,8 @@ model Offer {
   availableMinKg      Decimal? @map("available_min_kg")
   availableMaxKg      Decimal? @map("available_max_kg")
   isConfirmed         Boolean  @default(false) @map("is_confirmed")
-  photoUrl            String?  @map("photo_url")
   createdAt           DateTime @default(now()) @map("created_at")
+  photoUrl            String?  @map("photo_url")
   producer            User     @relation(fields: [producerId], references: [id])
   product             Product  @relation(fields: [productId], references: [id])
   tenant              Tenant   @relation(fields: [tenantId], references: [id])
@@ -278,10 +279,10 @@ model FeedPost {
   photoUrl   String?    @map("photo_url")
   eventType  EventType? @map("event_type")
   createdAt  DateTime   @default(now()) @map("created_at")
+  likes      Like[]
   producer   User       @relation(fields: [producerId], references: [id])
   product    Product?   @relation(fields: [productId], references: [id])
   tenant     Tenant     @relation(fields: [tenantId], references: [id])
-  likes      Like[]
 
   @@map("feed_posts")
 }
@@ -292,43 +293,41 @@ model Like {
   consumerId String   @map("consumer_id")
   createdAt  DateTime @default(now()) @map("created_at")
   post       FeedPost @relation(fields: [postId], references: [id])
-  
+
   @@unique([postId, consumerId])
   @@map("feed_likes")
 }
 
 model Review {
-  id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
-  consumerId  String   @map("consumer_id")
-  productId   String   @map("product_id")
-  producerId  String   @map("producer_id")
-  orderItemId String?  @unique @map("order_item_id")
-  rating      Int      @default(5)
+  id          String     @id @default(uuid())
+  tenantId    String     @map("tenant_id")
+  consumerId  String     @map("consumer_id")
+  productId   String     @map("product_id")
+  producerId  String     @map("producer_id")
+  orderItemId String?    @unique @map("order_item_id")
+  rating      Int        @default(5)
   comment     String?
-  createdAt   DateTime @default(now()) @map("created_at")
-
+  createdAt   DateTime   @default(now()) @map("created_at")
   consumer    User       @relation("ConsumerReviews", fields: [consumerId], references: [id])
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id])
   producer    User       @relation("ProducerReviews", fields: [producerId], references: [id])
   product     Product    @relation(fields: [productId], references: [id])
-  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id])
   tenant      Tenant     @relation(fields: [tenantId], references: [id])
 
   @@map("reviews")
 }
 
 model ChatMessage {
-  id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
-  senderId    String   @map("sender_id")
-  receiverId  String   @map("receiver_id")
-  content     String
-  isRead      Boolean  @default(false) @map("is_read")
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
-  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  senderId   String   @map("sender_id")
+  receiverId String   @map("receiver_id")
+  content    String
+  isRead     Boolean  @default(false) @map("is_read")
+  createdAt  DateTime @default(now()) @map("created_at")
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
 
   @@map("chat_messages")
 }
@@ -358,8 +357,8 @@ enum Role {
   producer
   consumer
   captain
-  repartidor
   admin
+  repartidor
 }
 
 enum UnitType {

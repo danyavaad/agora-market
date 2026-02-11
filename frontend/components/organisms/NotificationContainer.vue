@@ -1,13 +1,13 @@
 <template>
   <div
     aria-live="assertive"
-    class="fixed inset-0 flex items-end px-4 py-6 pointer-events-none sm:p-6 sm:items-start z-[100]"
+    class="fixed inset-x-0 bottom-10 flex flex-col items-center pointer-events-none z-[100] px-4"
   >
-    <div class="flex flex-col items-center space-y-4 w-full sm:items-end">
+    <div class="flex flex-col items-center space-y-3 w-full max-w-sm">
       <TransitionGroup
         name="list"
         tag="div"
-        class="flex flex-col items-center space-y-4 w-full sm:items-end"
+        class="flex flex-col items-center space-y-3 w-full"
       >
         <NotificationItem
           v-for="notification in store.notifications"
@@ -34,12 +34,12 @@ const store = useNotificationStore()
 
 .list-enter-from {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateY(20px) scale(0.95);
 }
 
 .list-leave-to {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateY(20px) scale(0.95);
 }
 
 .list-leave-active {

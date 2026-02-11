@@ -4,6 +4,7 @@
     <div class="absolute inset-0 z-0 opacity-50">
       <img src="/images/orchard-macro.png" 
            alt="Orchard Background" 
+           loading="lazy"
            class="w-full h-full object-cover scale-105 blur-[2px] grayscale-[0.2]">
       <div class="absolute inset-0 bg-gradient-to-b from-forest-dark/90 via-forest-dark/40 to-forest-dark/90"></div>
     </div>

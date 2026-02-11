@@ -1,3 +1,9 @@
+/*
+ * File: reviews.service.ts
+ * Purpose: Gestión de valoraciones y reseñas de productos y productores.
+ * Dependencies: PrismaService
+ * Domain: Calidad
+ */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 

@@ -1,3 +1,9 @@
+/*
+ * File: feed.service.ts
+ * Purpose: Gestión de publicaciones en el muro de la huerta.
+ * Dependencies: PrismaService
+ * Domain: Comunidad
+ */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { CreatePostDto } from '../dto/create-post.dto';

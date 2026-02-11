@@ -79,7 +79,7 @@
 
 <script setup lang="ts">
 const config = useRuntimeConfig()
-const apiBase = config.public.apiBase || 'http://localhost:3001'
+const apiBase = config.public.apiBase || '/api'
 const auth = useAuth()
 const tenantId = auth.user?.tenantId || 'nodo-caceres-id'
 
@@ -103,7 +103,10 @@ const fetchRoutes = async () => {
     loading.value = true
     try {
         const { data } = await useFetch(`${apiBase}/tenants/${tenantId}/delivery/routes?week=${targetDate.value}`, {
-            headers: { 'Authorization': `Bearer ${auth.token}` }
+            headers: { 
+                'Authorization': `Bearer ${auth.token}`,
+                'x-tenant-id': tenantId
+            }
         })
         routes.value = (data.value as any[]) || []
     } catch (e) {
@@ -117,7 +120,10 @@ const confirmDelivery = async (orderId: string, routeIdx: number) => {
     try {
         const { error } = await useFetch(`${apiBase}/tenants/${tenantId}/delivery/${orderId}/confirm`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${auth.token}` }
+            headers: { 
+                'Authorization': `Bearer ${auth.token}`,
+                'x-tenant-id': tenantId
+            }
         })
         if (error.value) throw new Error(error.value.message)
         

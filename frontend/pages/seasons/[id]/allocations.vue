@@ -65,6 +65,10 @@
 <script setup lang="ts">
 const route = useRoute()
 const auth = useAuth()
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase || '/api'
+const tenantId = auth.user?.tenantId || 'nodo-caceres-id'
+
 const loading = ref(true)
 const resolving = ref(false)
 const error = ref('')
@@ -94,7 +98,9 @@ onMounted(async () => {
     loading.value = true
     error.value = ''
     try {
-        const { data, error: fetchError } = await useFetch(`http://localhost:3001/tenants/default-tenant-id/seasons/${route.params.id}/allocations`)
+        const { data, error: fetchError } = await useFetch(`${apiBase}/tenants/${tenantId}/seasons/${route.params.id}/allocations`, {
+            headers: { 'x-tenant-id': tenantId }
+        })
         if (fetchError.value) throw new Error(fetchError.value.message)
         allocations.value = data.value as any[]
     } catch (e) {
@@ -111,10 +117,11 @@ const triggerResolution = async () => {
     try {
         // Hardcoded tenantId for now
         const token = auth.token
-        const { data, error: fetchError } = await useFetch(`http://localhost:3001/tenants/default-tenant-id/seasons/${route.params.id}/resolve`, {
+        const { data, error: fetchError } = await useFetch(`${apiBase}/tenants/${tenantId}/seasons/${route.params.id}/resolve`, {
             method: 'POST',
             headers: {
-                Authorization: `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'x-tenant-id': tenantId
             }
         })
         

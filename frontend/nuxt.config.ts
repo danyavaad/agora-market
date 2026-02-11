@@ -15,7 +15,36 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      apiBase: 'http://localhost:3001'
+      apiBase: '/api'  // Ruta relativa - Nginx hace proxy a localhost:3001/api/
+    }
+  },
+  // Fix para recursos externos que bloquean la renderización
+  app: {
+    head: {
+      link: [
+        {
+          rel: 'preconnect',
+          href: 'https://fonts.googleapis.com',
+          crossorigin: 'anonymous'
+        },
+        {
+          rel: 'preconnect',
+          href: 'https://www.transparenttextures.com',
+          crossorigin: 'anonymous'
+        }
+      ]
+    }
+  },
+  nitro: {
+    experimental: {
+      wasm: true
+    },
+    devProxy: {
+      '/api': {
+        target: 'http://localhost:3001/api',
+        changeOrigin: true,
+        prependPath: true
+      }
     }
   }
 })

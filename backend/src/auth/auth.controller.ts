@@ -1,8 +1,8 @@
 /*
  * File: auth.controller.ts
- * Purpose: Exposes authentication endpoints
+ * Purpose: Expone los endpoints de autenticación (registro, login).
  * Dependencies: AuthService
- * Domain: Authentication
+ * Domain: Autenticación
  */
 import { Body, Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -21,6 +21,7 @@ export class AuthController {
     @HttpCode(HttpStatus.OK)
     @Post('login')
     async login(@Body() loginDto: LoginDto) {
+        console.log(`Login attempt for email: ${loginDto.email}`);
         return this.authService.login(loginDto);
     }
 }

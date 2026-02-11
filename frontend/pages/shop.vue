@@ -73,11 +73,17 @@
                         </span>
                         
                         <div v-if="product.marketState.offerPhotos && product.marketState.offerPhotos.length > 0" class="absolute inset-0">
-                           <img :src="product.marketState.offerPhotos[0].startsWith('http') ? product.marketState.offerPhotos[0] : apiBase + product.marketState.offerPhotos[0]" :alt="product.name" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                           <img :src="product.marketState.offerPhotos[0].startsWith('http') ? product.marketState.offerPhotos[0] : apiBase + product.marketState.offerPhotos[0]" 
+                                :alt="product.name" 
+                                loading="lazy"
+                                class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                            <div class="absolute inset-0 bg-black/10"></div>
                         </div>
                         <div v-else-if="product.imageUrl" class="absolute inset-0">
-                           <img :src="product.imageUrl" :alt="product.name" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                           <img :src="product.imageUrl.startsWith('http') ? product.imageUrl : apiBase + product.imageUrl" 
+                                :alt="product.name" 
+                                loading="lazy"
+                                class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                            <div class="absolute inset-0 bg-black/5"></div>
                         </div>
                         <div v-else class="text-7xl drop-shadow-sm transition-transform duration-500 group-hover:scale-110">
@@ -117,7 +123,7 @@
                              <div class="flex justify-between items-center px-1">
                                  <div class="flex flex-col">
                                     <span class="text-[10px] font-bold text-basil-green-light uppercase tracking-widest">
-                                      {{ product.unitType === 'bunch' ? formatQty(product.marketState.totalAvailableUnits) + ' Uds' : formatQty(product.marketState.totalAvailableKg) + ' Kg' }} disponible
+                                      {{ (product.unitType === 'bunch' || product.unitType === 'unit') ? formatQty(product.marketState.totalAvailableUnits) + ' Uds' : formatQty(product.marketState.totalAvailableKg) + ' Kg' }} disponible
                                     </span>
                                     <button @click="openProduct(product)" class="text-[9px] font-black text-white/40 hover:text-basil-green uppercase tracking-widest mt-1 mr-auto flex items-center gap-1 transition-colors">
                                        ⭐ Ver Valoraciones
@@ -142,7 +148,7 @@
                                   </div>
 
                                   <button @click="cartStore.updateQty(product, 1)" 
-                                          :disabled="cartStore.getQty(product.id) >= (product.unitType === 'bunch' ? product.marketState.totalAvailableUnits : (product.unitType === 'unit' ? product.marketState.totalAvailableUnits : product.marketState.totalAvailableKg))"
+                                           :disabled="cartStore.getQty(product.id) >= ((product.unitType === 'bunch' || product.unitType === 'unit') ? product.marketState.totalAvailableUnits : product.marketState.totalAvailableKg)"
                                           class="w-12 h-12 rounded-[14px] bg-basil-green text-moss-green-dark flex items-center justify-center hover:bg-basil-green-light font-black shadow-[0_4px_20px_rgba(124,173,88,0.25)] disabled:opacity-20 transition-all hover:scale-105 active:scale-90">
                                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M12 4v16m8-8H4" /></svg>
                                   </button>
@@ -183,6 +189,7 @@
                             <div class="w-10 h-10 rounded-xl overflow-hidden bg-white/5 flex items-center justify-center flex-shrink-0 border border-white/5">
                                <img v-if="item.image && !failedImages.has(item.productId)" 
                                     :src="item.image.startsWith('http') ? item.image : apiBase + item.image" 
+                                    loading="lazy"
                                     @error="onImageError(item.productId)"
                                     class="w-full h-full object-cover" />
                                <span v-else class="text-xl">{{ getEmoji(item.name) }}</span>
@@ -223,11 +230,17 @@
           <div class="bg-forest-dark-card border-l border-white/10 w-full max-w-lg h-full rounded-[2.5rem] relative z-10 shadow-2xl overflow-hidden flex flex-col">
             <div class="h-64 bg-basil-green/5 flex items-center justify-center relative overflow-hidden">
                <div v-if="selectedProduct.marketState?.offerPhotos && selectedProduct.marketState.offerPhotos.length > 0" class="absolute inset-0">
-                  <img :src="selectedProduct.marketState.offerPhotos[0].startsWith('http') ? selectedProduct.marketState.offerPhotos[0] : apiBase + selectedProduct.marketState.offerPhotos[0]" :alt="selectedProduct.name" class="w-full h-full object-cover" />
+                  <img :src="selectedProduct.marketState.offerPhotos[0].startsWith('http') ? selectedProduct.marketState.offerPhotos[0] : apiBase + selectedProduct.marketState.offerPhotos[0]" 
+                       :alt="selectedProduct.name" 
+                       loading="lazy"
+                       class="w-full h-full object-cover" />
                   <div class="absolute inset-0 bg-black/20"></div>
                </div>
                <div v-else-if="selectedProduct.imageUrl" class="absolute inset-0">
-                  <img :src="selectedProduct.imageUrl" :alt="selectedProduct.name" class="w-full h-full object-cover" />
+                  <img :src="selectedProduct.imageUrl.startsWith('http') ? selectedProduct.imageUrl : apiBase + selectedProduct.imageUrl" 
+                       :alt="selectedProduct.name" 
+                       loading="lazy" 
+                       class="w-full h-full object-cover" />
                   <div class="absolute inset-0 bg-black/20"></div>
                </div>
                <div v-else class="text-[120px] filter drop-shadow-2xl">
@@ -276,6 +289,14 @@
             </div>
          </div>
       </div>
+      <!-- Confirmation Modal -->
+      <OrderConfirmationModal 
+         :is-open="showConfirmation"
+         :total="cartStore.totalPrice"
+         :items="cartStore.items"
+         @cancel="showConfirmation = false"
+         @confirm="processOrder"
+      />
     </div>
   </ClientOnly>
 </template>
@@ -283,21 +304,25 @@
 <script setup lang="ts">
 import BentoCard from '~/components/BentoCard.vue'
 import SocialFeed from '~/components/SocialFeed.vue'
+import OrderConfirmationModal from '~/components/OrderConfirmationModal.vue'
 
 const auth = useAuth()
 const toast = useToast()
+const router = useRouter()
 
 const config = useRuntimeConfig()
-const apiBase = config.public.apiBase || 'http://localhost:3001'
+const apiBase = config.public.apiBase || '/api'
 const tenantId = auth.user?.tenantId || 'nodo-caceres-id'
 
 const loading = ref(true)
 const submitting = ref(false)
+const showConfirmation = ref(false)
 const products = ref<any[]>([])
 const searchQuery = ref('')
 const view = ref('products')
 const isCartExpanded = ref(false)
 const failedImages = ref(new Set<string>())
+let pollInterval: any = null
 
 const filteredProducts = computed(() => {
   if (!products.value) return []
@@ -349,7 +374,6 @@ const formatQty = (val: any) => {
     if (val === null || val === undefined) return '0'
     const n = Number(val)
     if (isNaN(n)) return '0'
-    // If it is an integer, return it as is. If it has decimals, show up to 1.
     return Number.isInteger(n) ? n.toString() : n.toFixed(1)
 }
 
@@ -371,10 +395,16 @@ const cartStore = useCartStore()
 // Initial Load
 onMounted(async () => {
     await fetchMarket()
+    // Poll for real-time stock updates every 10s for the demo
+    pollInterval = setInterval(() => fetchMarket(true), 10000)
 })
 
-const fetchMarket = async () => {
-    loading.value = true
+onUnmounted(() => {
+    if (pollInterval) clearInterval(pollInterval)
+})
+
+const fetchMarket = async (silent = false) => {
+    if (!silent) loading.value = true
     try {
         const url = `${apiBase}/tenants/${tenantId}/market/products?week=${targetDate.value}`
         const data = await $fetch(url, {
@@ -384,12 +414,20 @@ const fetchMarket = async () => {
     } catch (e) {
         console.error('Fetch error:', e)
     } finally {
-        loading.value = false
+        if (!silent) loading.value = false
     }
 }
 
-// Checkout
+// Open Modal
 const checkout = async () => {
+    console.log('Checkout clicked! Setting showConfirmation to true');
+    showConfirmation.value = true;
+    console.log('showConfirmation value:', showConfirmation.value);
+}
+
+// Final Process
+const processOrder = async () => {
+    showConfirmation.value = false
     submitting.value = true
     try {
         const payload = {
@@ -404,11 +442,15 @@ const checkout = async () => {
         await $fetch(`${apiBase}/tenants/${tenantId}/market/orders`, {
             method: 'POST',
             body: payload,
-            headers: { 'Authorization': `Bearer ${auth.token}` }
+            headers: { 
+                'Authorization': `Bearer ${auth.token}`,
+                'x-tenant-id': tenantId
+            }
         })
         
         toast.success('¡Pedido realizado con éxito! 🥦')
         cartStore.clear()
+        router.push('/orders')
     } catch (e: any) {
         toast.error('Error al realizar el pedido: ' + (e.data?.message || e.message))
         console.error(e)
@@ -421,7 +463,9 @@ const openProduct = async (product: any) => {
     selectedProduct.value = product
     loadingReviews.value = true
     try {
-        const data = await $fetch(`${apiBase}/tenants/${tenantId}/reviews/product/${product.id}`)
+        const data = await $fetch(`${apiBase}/tenants/${tenantId}/reviews/product/${product.id}`, {
+            headers: { 'x-tenant-id': tenantId }
+        })
         reviews.value = (data as any[]) || []
     } catch (e) {
         console.error('Fetch reviews error:', e)

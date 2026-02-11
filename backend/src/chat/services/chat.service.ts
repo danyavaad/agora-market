@@ -1,3 +1,9 @@
+/*
+ * File: chat.service.ts
+ * Purpose: Gestión de mensajes de chat entre usuarios.
+ * Dependencies: PrismaService
+ * Domain: Comunicación
+ */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 
@@ -5,6 +11,14 @@ import { PrismaService } from '../../prisma.service';
 export class ChatService {
     constructor(private prisma: PrismaService) { }
 
+
+    /**
+     * Envía un mensaje de chat entre dos usuarios.
+     * @param tenantId ID del tenant.
+     * @param senderId ID del remitente.
+     * @param data Datos del mensaje (receiverId, content).
+     * @returns El mensaje creado.
+     */
     async sendMessage(tenantId: string, senderId: string, data: any) {
         return this.prisma.chatMessage.create({
             data: {

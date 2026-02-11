@@ -21,7 +21,10 @@ export class TenantGuard implements CanActivate {
         const request = context.switchToHttp().getRequest();
 
         // Skip for auth routes (Login/Register) and tenant discovery
-        if (request.url.startsWith('/auth') || request.url.startsWith('/tenants')) {
+        console.log(`[TenantGuard] Path: ${request.url}`);
+
+        const skipPaths = ['/auth', '/tenants', '/api/auth', '/api/tenants'];
+        if (skipPaths.some(path => request.url.startsWith(path))) {
             return true;
         }
 

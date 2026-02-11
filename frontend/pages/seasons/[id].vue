@@ -114,7 +114,7 @@ import BentoCard from '~/components/BentoCard.vue'
 const route = useRoute()
 const seasonId = route.params.id as string
 const config = useRuntimeConfig()
-const apiBase = config.public.apiBase || 'http://localhost:3001'
+const apiBase = config.public.apiBase || '/api'
 const tenantId = 'nodo-caceres-id'
 
 const season = ref(null)

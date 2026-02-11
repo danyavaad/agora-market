@@ -33,6 +33,7 @@ export const useCartStore = defineStore('cart', {
                         qty: newQty,
                         unitType: product.unitType,
                         image: (product.marketState?.offerPhotos?.length > 0 ? product.marketState.offerPhotos[0] : (product.imageUrl || null))
+
                     })
                 }
             }

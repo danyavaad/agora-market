@@ -4,6 +4,7 @@
  */
 import { defineStore } from 'pinia';
 import { jwtDecode } from 'jwt-decode';
+import { useCartStore } from '~/stores/cart';
 
 interface User {
     id: string;
@@ -63,8 +64,10 @@ export const useAuth = defineStore('auth', {
             localStorage.setItem('auth_user', JSON.stringify(user));
         },
         async register(userData: any) {
+            const config = useRuntimeConfig();
+            const apiBase = config.public.apiBase || 'http://localhost:3001';
             try {
-                const response = await $fetch('http://localhost:3001/auth/register', {
+                const response = await $fetch(`${apiBase}/auth/register`, {
                     method: 'POST',
                     body: userData,
                 });
@@ -76,8 +79,9 @@ export const useAuth = defineStore('auth', {
 
         async login(credentials: any) {
             const config = useRuntimeConfig();
+            const apiBase = config.public.apiBase || 'http://localhost:3001';
             try {
-                const response: any = await $fetch('http://localhost:3001/auth/login', {
+                const response: any = await $fetch(`${apiBase}/auth/login`, {
                     method: 'POST',
                     body: credentials,
                 });
@@ -91,6 +95,8 @@ export const useAuth = defineStore('auth', {
             }
         },
         logout() {
+            const cartStore = useCartStore();
+            cartStore.clear();
             this.token = null;
             this.user = null;
             localStorage.removeItem('auth_token');

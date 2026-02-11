@@ -1,3 +1,9 @@
+<!--
+  File: AppHeader.vue
+  Purpose: Cabecera principal de la aplicación con navegación, carrito y estado del usuario.
+  Dependencies: useI18n, useAuth, useCartStore
+  Domain: UI / Navigation
+-->
 <script setup lang="ts">
 const { locale } = useI18n()
 const auth = useAuth()
@@ -40,7 +46,10 @@ const fetchStats = async () => {
     // Fetch Chat Unread Total
     try {
         const data = await $fetch(`${apiBase}/tenants/${auth.user?.tenantId}/chat/unread-total`, {
-            headers: { 'Authorization': `Bearer ${auth.token}` }
+            headers: { 
+              'Authorization': `Bearer ${auth.token}`,
+              'x-tenant-id': auth.user?.tenantId || 'nodo-caceres-id'
+            }
         })
         unreadChatCount.value = (data as any).total || 0
     } catch (e) {
@@ -54,6 +63,7 @@ const isCartExpanded = ref(false)
 const isStallExpanded = ref(false)
 const isCartOpen = ref(false)
 const isStallOpen = ref(false)
+const isMobileMenuOpen = ref(false)
 
 const failedImages = ref(new Set<string>())
 
@@ -94,20 +104,21 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <header class="flex items-center justify-between px-6 py-4 bg-forest-dark/80 backdrop-blur-2xl sticky top-0 z-50 border-b border-white/5 shadow-2xl">
-    <div class="flex items-center gap-3 group cursor-pointer">
+  <header class="flex items-center justify-between px-6 py-4 bg-forest-dark/80 backdrop-blur-2xl sticky top-0 z-50 border-b border-white/5 shadow-2xl relative">
+    <div class="flex items-center gap-3 group cursor-pointer" @click="navigateTo('/')">
       <!-- Logo placeholder -->
       <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-basil-green to-moss-green flex items-center justify-center text-white font-serif font-bold text-lg shadow-xl group-hover:scale-110 transition-transform">
         H
       </div>
       <div>
         <h1 class="font-serif font-bold text-white text-xl leading-tight">Huertify</h1>
-        <p class="text-[9px] text-basil-green-light font-bold tracking-[0.2em] uppercase">Artesanal • Cooperativo • Directo</p>
+        <p class="text-[9px] text-basil-green-light font-bold tracking-[0.2em] uppercase hidden sm:block">Artesanal • Cooperativo • Directo</p>
       </div>
     </div>
 
+    <!-- Desktop Navigation -->
     <ClientOnly>
-      <div class="flex items-center gap-6">
+      <div class="hidden md:flex items-center gap-6">
         <!-- Consumer Links -->
         <template v-if="!auth.user || auth.user?.role === 'consumer'">
           <NuxtLink to="/shop" class="text-xs font-bold text-white/60 hover:text-basil-green-light uppercase tracking-widest transition">Tienda</NuxtLink>
@@ -130,20 +141,19 @@ onUnmounted(() => {
           </NuxtLink>
           
           <!-- Producer Stall Dropdown -->
-          <div class="relative group/stall">
-            <NuxtLink to="/producer/offers" 
-                      @click.prevent="isStallOpen = !isStallOpen"
-                      class="text-xs font-bold text-white/60 group-hover/stall:text-basil-green-light uppercase tracking-widest transition flex items-center gap-1.5 py-2">
+          <div class="relative">
+            <button @click.stop="isStallOpen = !isStallOpen; isCartOpen = false"
+                      class="text-xs font-bold text-white/60 hover:text-basil-green-light uppercase tracking-widest transition flex items-center gap-1.5 py-2">
                Mi Puesto
                <span v-if="offerCount > 0" class="bg-basil-green text-moss-green-dark text-[10px] px-1.5 py-0.5 rounded-full font-black min-w-[18px] text-center">
                   {{ offerCount }}
                </span>
-            </NuxtLink>
+            </button>
 
             <!-- Dropdown content for Stall -->
             <div 
-              :class="[isStallOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-2']"
-              class="absolute right-0 top-10 w-80 bg-forest-dark-card border border-white/10 rounded-[2rem] shadow-2xl group-hover/stall:opacity-100 group-hover/stall:visible group-hover/stall:translate-y-0 transition-all duration-300 z-[100] p-6 backdrop-blur-xl">
+              v-if="isStallOpen"
+              class="absolute right-0 top-12 w-80 bg-forest-dark-card border border-white/10 rounded-[2rem] shadow-2xl transition-all duration-300 z-[100] p-6 backdrop-blur-xl animate-fade-in-down">
                <div class="flex justify-between items-center mb-6">
                   <h3 class="text-sm font-serif font-bold text-white">Tu Puesto Semanal</h3>
                   <span class="text-[9px] font-black text-basil-green-light uppercase tracking-widest">{{ offerCount }} Productos</span>
@@ -195,9 +205,9 @@ onUnmounted(() => {
         </template>
 
         <!-- Global Cart -->
-        <div v-if="!auth.user || auth.user?.role === 'consumer'" class="relative group/cart mr-2">
+        <div v-if="!auth.user || auth.user?.role === 'consumer'" class="relative mr-2">
           <button 
-            @click="isCartOpen = !isCartOpen"
+            @click.stop="isCartOpen = !isCartOpen; isStallOpen = false"
             class="w-10 h-10 rounded-xl bg-basil-green/10 flex items-center justify-center text-basil-green hover:bg-basil-green hover:text-white transition-all border border-basil-green/20 relative">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
             <span v-if="cartStore.totalItems > 0" class="absolute -top-1 -right-1 bg-tomato-red text-white text-[8px] px-1.5 py-0.5 rounded-full font-black shadow-lg animate-bounce">
@@ -207,8 +217,8 @@ onUnmounted(() => {
 
           <!-- Premium Cart Dropdown -->
           <div 
-             :class="[isCartOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-2']"
-             class="absolute right-0 top-12 w-80 bg-forest-dark-card border border-white/10 rounded-[2rem] shadow-2xl group-hover/cart:opacity-100 group-hover/cart:visible group-hover/cart:translate-y-0 transition-all duration-300 z-[100] p-6 backdrop-blur-xl">
+             v-if="isCartOpen"
+             class="absolute right-0 top-14 w-80 bg-forest-dark-card border border-white/10 rounded-[2rem] shadow-2xl transition-all duration-300 z-[100] p-6 backdrop-blur-xl animate-fade-in-down">
              <div class="flex justify-between items-center mb-6">
                 <h3 class="text-sm font-serif font-bold text-white">Tu Cesta</h3>
                 <span class="text-[9px] font-black text-basil-green-light uppercase tracking-widest">{{ cartStore.totalItems }} Items</span>
@@ -255,7 +265,7 @@ onUnmounted(() => {
                 </div>
 
                 <NuxtLink to="/shop" class="block w-full py-3 bg-basil-green text-moss-green-dark text-center rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-basil-green-light transition-all shadow-lg">
-                   Ver Tienda
+                   Confirmar Pedido
                 </NuxtLink>
              </div>
           </div>
@@ -267,7 +277,7 @@ onUnmounted(() => {
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
         </button>
         
-        <!-- Auth Actions -->
+        <!-- Auth Actions Desktop -->
         <NuxtLink v-if="!auth.isAuthenticated" to="/login" class="px-4 py-2 bg-basil-green text-white text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-basil-green-dark transition shadow-sm">
           Entrar
         </NuxtLink>
@@ -285,6 +295,114 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+
+      <!-- Mobile Header Actions (Cart + Hamburger) -->
+      <div class="flex md:hidden items-center gap-3">
+         <!-- Mobile Cart -->
+        <div v-if="!auth.user || auth.user?.role === 'consumer'" class="relative">
+          <button 
+            @click.stop="isCartOpen = !isCartOpen; isStallOpen = false"
+            class="w-10 h-10 rounded-xl bg-basil-green/10 flex items-center justify-center text-basil-green hover:bg-basil-green hover:text-white transition-all border border-basil-green/20 relative">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+            <span v-if="cartStore.totalItems > 0" class="absolute -top-1 -right-1 bg-tomato-red text-white text-[8px] px-1.5 py-0.5 rounded-full font-black shadow-lg animate-bounce">
+              {{ cartStore.totalItems }}
+            </span>
+          </button>
+        </div>
+
+        <!-- Hamburger Button -->
+        <button @click="isMobileMenuOpen = !isMobileMenuOpen" class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white border border-white/10">
+           <svg v-if="!isMobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+           <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
     </ClientOnly>
   </header>
+
+  <!-- Mobile Menu Overlay -->
+  <Transition name="fade">
+     <div v-if="isMobileMenuOpen" class="fixed inset-0 z-40 bg-forest-dark/95 backdrop-blur-xl md:hidden flex flex-col pt-24 px-6 pb-6 overflow-y-auto">
+         <!-- Auth Info Mobile -->
+         <div v-if="auth.isAuthenticated" class="flex items-center gap-4 mb-8 bg-white/5 p-4 rounded-2xl border border-white/10">
+             <img :src="`https://i.pravatar.cc/150?u=${auth.user?.id}`" alt="User" class="w-12 h-12 rounded-full border-2 border-basil-green">
+             <div>
+                <p class="text-[10px] font-black text-basil-green-light uppercase tracking-widest">{{ auth.user?.role }}</p>
+                <p class="text-lg font-bold text-white">{{ auth.user?.name }}</p>
+             </div>
+         </div>
+
+         <!-- Mobile Navigation Links -->
+         <nav class="flex flex-col gap-4">
+             <!-- Consumer Mobile -->
+             <template v-if="!auth.user || auth.user?.role === 'consumer'">
+                <NuxtLink to="/shop" @click="isMobileMenuOpen = false" class="py-4 border-b border-white/5 text-lg font-bold text-white/80 hover:text-basil-green transition flex items-center justify-between">
+                   Tienda <span class="text-xl">🛍️</span>
+                </NuxtLink>
+                <template v-if="auth.isAuthenticated">
+                   <NuxtLink to="/orders" @click="isMobileMenuOpen = false" class="py-4 border-b border-white/5 text-lg font-bold text-white/80 hover:text-basil-green transition flex items-center justify-between">
+                      Mis Pedidos <span class="text-xl">📦</span>
+                   </NuxtLink>
+                   <NuxtLink to="/chat" @click="isMobileMenuOpen = false" class="py-4 border-b border-white/5 text-lg font-bold text-white/80 hover:text-basil-green transition flex items-center justify-between">
+                      Mensajes <span class="text-xl">💬</span>
+                   </NuxtLink>
+                </template>
+             </template>
+
+             <!-- Producer Mobile -->
+             <template v-else-if="auth.user?.role === 'producer'">
+                <NuxtLink to="/producer" @click="isMobileMenuOpen = false" class="py-4 border-b border-white/5 text-lg font-bold text-white/80 hover:text-basil-green transition flex items-center justify-between">
+                   Panel <span class="text-xl">📊</span>
+                </NuxtLink>
+                <NuxtLink to="/producer/offers" @click="isMobileMenuOpen = false" class="py-4 border-b border-white/5 text-lg font-bold text-white/80 hover:text-basil-green transition flex items-center justify-between">
+                   Mi Puesto <span class="text-xl">🧺</span>
+                </NuxtLink>
+                <NuxtLink to="/harvest" @click="isMobileMenuOpen = false" class="py-4 border-b border-white/5 text-lg font-bold text-white/80 hover:text-basil-green transition flex items-center justify-between">
+                   Día de Cosecha <span class="text-xl">🚜</span>
+                </NuxtLink>
+                <NuxtLink to="/producer/reparto" @click="isMobileMenuOpen = false" class="py-4 border-b border-white/5 text-lg font-bold text-white/80 hover:text-basil-green transition flex items-center justify-between">
+                   Logística <span class="text-xl">🚚</span>
+                </NuxtLink>
+                <NuxtLink to="/chat" @click="isMobileMenuOpen = false" class="py-4 border-b border-white/5 text-lg font-bold text-white/80 hover:text-basil-green transition flex items-center justify-between">
+                   Mensajes <span class="text-xl">💬</span>
+                </NuxtLink>
+             </template>
+
+             <!-- Logistics Mobile -->
+             <template v-else-if="auth.user?.role === 'captain' || auth.user?.role === 'repartidor'">
+                <NuxtLink to="/reparto" @click="isMobileMenuOpen = false" class="py-4 border-b border-white/5 text-lg font-bold text-white/80 hover:text-basil-green transition flex items-center justify-between">
+                   Reparto <span class="text-xl">🚚</span>
+                </NuxtLink>
+                <NuxtLink v-if="auth.user?.role === 'captain'" to="/captain" @click="isMobileMenuOpen = false" class="py-4 border-b border-white/5 text-lg font-bold text-white/80 hover:text-basil-green transition flex items-center justify-between">
+                   Gestión Ágora <span class="text-xl">⚓</span>
+                </NuxtLink>
+             </template>
+         </nav>
+
+         <div class="mt-auto pt-8">
+            <template v-if="auth.isAuthenticated">
+               <button @click="auth.logout()" class="w-full py-4 bg-tomato-red/10 text-tomato-red font-bold uppercase tracking-widest rounded-xl hover:bg-tomato-red hover:text-white transition-all border border-tomato-red/20">
+                  Cerrar Sesión
+               </button>
+            </template>
+            <template v-else>
+               <NuxtLink to="/login" class="block text-center w-full py-4 bg-basil-green text-white font-bold uppercase tracking-widest rounded-xl hover:bg-basil-green-light transition-all shadow-lg">
+                  Iniciar Sesión
+               </NuxtLink>
+            </template>
+         </div>
+     </div>
+  </Transition>
+  <!-- Overlay to close dropdowns -->
+  <div v-if="isStallOpen || isCartOpen" @click="isStallOpen = false; isCartOpen = false" class="fixed inset-0 z-40 bg-transparent"></div>
 </template>
+
+<style scoped>
+.animate-fade-in-down {
+  animation: fadeInDown 0.2s ease-out;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>

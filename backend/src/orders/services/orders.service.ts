@@ -1,8 +1,24 @@
 /*
  * File: orders.service.ts
- * Purpose: Business logic for Market aggregation and Order creation.
- * Dependencies: PrismaService, CreateOrderDto
+ * Purpose: Lógica de negocio para la agregación del mercado y creación de pedidos.
+ * Design: Patrón Service orquestador que centraliza el cálculo de stock y transacciones de pedidos.
+ * Dependencies: PrismaService
+ * Domain: Pedidos
  */
+
+export interface ProducerDeliveryItem {
+    id: string;
+    productName: string;
+    unitType: string;
+    qty: string | number | null;
+}
+
+export interface ProducerDeliveryGroup {
+    orderId: string;
+    binNumber: number | null;
+    customerName: string;
+    items: ProducerDeliveryItem[];
+}
 
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
@@ -14,6 +30,13 @@ export class OrdersService {
     constructor(private prisma: PrismaService) { }
 
     // 1. Get Market Products (Aggregated Offers)
+
+    /**
+     * Obtiene los productos disponibles en el mercado para una semana específica, calculando el stock agregado y el productor principal.
+     * @param tenantId ID del tenant.
+     * @param week Fecha de la semana.
+     * @returns Lista de productos con estado de mercado.
+     */
     async getMarketProducts(tenantId: string, week: Date) {
         // Find active season to get priorities
         const activeSeason = await this.prisma.season.findFirst({
@@ -109,6 +132,14 @@ export class OrdersService {
     }
 
     // 2. Create Order (Basket)
+
+    /**
+     * Crea un nuevo pedido para un consumidor, gestionando la asignación de productores y la resta de stock.
+     * @param tenantId ID del tenant.
+     * @param consumerId ID del consumidor.
+     * @param createOrderDto DTO con los detalles del pedido.
+     * @returns El pedido creado.
+     */
     async createOrder(tenantId: string, consumerId: string, createOrderDto: CreateOrderDto) {
         const { week, items, deliveryDistanceKm } = createOrderDto;
         const weekDate = new Date(week);
@@ -133,7 +164,9 @@ export class OrdersService {
 
             // 3. Fetch prices and calculate estimated total + Assign Producers (Cascade) + Subtract Stock
             let totalEstimatedProducts = 0;
-            const itemsWithProducers = await Promise.all(items.map(async (item) => {
+            const finalOrderItems = [];
+
+            for (const item of items) {
                 const product = await tx.product.findUnique({ where: { id: item.productId } });
                 if (!product) throw new BadRequestException(`Product ${item.productId} not found`);
 
@@ -149,90 +182,113 @@ export class OrdersService {
                     orderBy: { priorityOrder: 'asc' }
                 }) : [];
 
-                let assignedToProducerId = null;
-                for (const priority of priorities) {
-                    const off = offers.find(o => o.producerId === priority.producerId);
-                    const hasStock = (product.unitType === 'bunch' || product.unitType === 'unit')
-                        ? (off?.availableUnits ?? 0) >= (item.units || 0)
-                        : (Number(off?.availableQuantityKg) || 0) >= (item.quantityKg || 0);
-
-                    if (hasStock) {
-                        assignedToProducerId = priority.producerId;
-                        break;
-                    }
-                }
-
-                if (!assignedToProducerId) {
-                    // GLOBAL STOCK CHECK as fallback or verification
-                    const totalAcrossProducers = offers.reduce((sum, o) =>
-                        sum + ((product.unitType === 'bunch' || product.unitType === 'unit')
-                            ? (o.availableUnits || 0)
-                            : Number(o.availableQuantityKg || 0)), 0);
-
-                    const needed = (product.unitType === 'bunch' || product.unitType === 'unit') ? (item.units || 0) : (item.quantityKg || 0);
-
-                    if (totalAcrossProducers < needed) {
-                        throw new BadRequestException(`No hay stock suficiente para ${product.name}. Disponible: ${totalAcrossProducers}, Pedido: ${needed}`);
-                    }
-
-                    // If total is enough but NO SINGLE producer has enough, we'd need to split (Future logic), 
-                    // but for now we pick the one with the most stock if fallback
-                    const biggestOffer = [...offers].sort((a, b) =>
-                        ((product.unitType === 'bunch' || product.unitType === 'unit') ? ((b.availableUnits ?? 0) - (a.availableUnits ?? 0)) : (Number(b.availableQuantityKg) - Number(a.availableQuantityKg)))
-                    )[0];
-
-                    if (biggestOffer) assignedToProducerId = biggestOffer.producerId;
-                }
-
-                if (!assignedToProducerId) {
-                    throw new BadRequestException(`No hay stock disponible para ${product.name}`);
-                }
-
-                // SUBTRACT STOCK
-                const currentOffer = await tx.offer.findUnique({
-                    where: {
-                        producerId_productId_week: {
-                            producerId: assignedToProducerId,
-                            productId: item.productId,
-                            week: weekDate
-                        }
-                    }
+                // Sort offers based on priority
+                const sortedOffers = [...offers].sort((a, b) => {
+                    const priorityA = priorities.find(p => p.producerId === a.producerId)?.priorityOrder ?? 999;
+                    const priorityB = priorities.find(p => p.producerId === b.producerId)?.priorityOrder ?? 999;
+                    if (priorityA !== priorityB) return priorityA - priorityB;
+                    // Tie-breaker: most stock first
+                    const stockA = (product.unitType === 'bunch' || product.unitType === 'unit') ? (a.availableUnits || 0) : Number(a.availableQuantityKg || 0);
+                    const stockB = (product.unitType === 'bunch' || product.unitType === 'unit') ? (b.availableUnits || 0) : Number(b.availableQuantityKg || 0);
+                    return stockB - stockA;
                 });
 
-                if (!currentOffer) throw new BadRequestException(`Oferta no encontrada para stock`);
+                let remainingNeededConfigured = (product.unitType === 'bunch' || product.unitType === 'unit')
+                    ? (item.units || 0)
+                    : (item.quantityKg || 0);
 
-                if (product.unitType === 'bunch' || product.unitType === 'unit') {
-                    await tx.offer.update({
-                        where: { id: currentOffer.id },
-                        data: { availableUnits: { decrement: item.units || 0 } }
-                    });
-                } else {
-                    const newKg = Number(currentOffer.availableQuantityKg) - (item.quantityKg || 0);
-                    await tx.offer.update({
-                        where: { id: currentOffer.id },
-                        data: { availableQuantityKg: newKg.toString() }
-                    });
-                }
+                let totalFound = 0;
 
-                let itemPrice = 0;
+                // Determine unit price one time
+                let basePricePerUnit = 0; // per Kg or per Unit/Bunch
                 if (product.unitType === 'weight_variable') {
                     const avgWeight = (Number(product.minWeightKg || 0) + Number(product.maxWeightKg || 0)) / 2;
-                    itemPrice = Number(product.pricePerKg || 0) * (avgWeight || 1) * (item.units || 0);
+                    // For variable weight, price calc is tricky because 'units' are bunches, but price is per kg.
+                    // Usually variable weight items are sold by "units" (e.g. 1 watermelon) but priced by kg.
+                    // The input `item` likely has `units`.
+                    // We need to estimate price based on avg weight.
+                    // BUT stock is tracked in units usually or kg?
+                    // Offers usually track `availableUnits` for "bunch/unit" or `availableQuantityKg` for weight.
+                    // Let's stick to the existing logic:
+                    // If weight_variable -> we track stock by UNITS usually? No, schema says `availableQuantityKg` or `availableUnits`.
+                    // existing logic used: `itemPrice = Number(product.pricePerKg || 0) * (avgWeight || 1) * (item.units || 0);`
+                    // So weight_variable is sold by UNITS but priced by KG.
+                    // Let's assume stock is tracked by KG for weight items? Or Units?
+                    // Previous logic checked `availableQuantityKg` if NOT bunch/unit.
+                    // So for weight_variable/weight_fixed we track KG.
+                    basePricePerUnit = Number(product.pricePerKg || 0) * (avgWeight || 1);
                 } else if (product.unitType === 'bunch') {
-                    itemPrice = Number(product.pricePerBunch || 0) * (item.units || 0);
+                    basePricePerUnit = Number(product.pricePerBunch || 0);
+                } else if (product.unitType === 'unit') { // Just in case
+                    basePricePerUnit = Number(product.pricePerUnit || 0);
                 } else {
-                    itemPrice = Number(product.pricePerKg || 0) * (item.quantityKg || 0);
+                    basePricePerUnit = Number(product.pricePerKg || 0);
                 }
 
-                totalEstimatedProducts += itemPrice;
-                return {
-                    ...item,
-                    estimatedPrice: itemPrice,
-                    assignedToProducerId
-                };
-            }));
+                // Iterate through sorted offers to fill the order
+                for (const offer of sortedOffers) {
+                    if (remainingNeededConfigured <= 0) break;
+
+                    const isUnitBased = (product.unitType === 'bunch' || product.unitType === 'unit');
+                    const availableInOffer = isUnitBased ? (offer.availableUnits || 0) : Number(offer.availableQuantityKg || 0);
+
+                    if (availableInOffer <= 0) continue;
+
+                    const takeAmount = Math.min(remainingNeededConfigured, availableInOffer);
+
+                    // Add split item
+                    let itemEstimatedPrice = 0;
+                    if (product.unitType === 'weight_variable') {
+                        const avgWeight = (Number(product.minWeightKg || 0) + Number(product.maxWeightKg || 0)) / 2;
+                        itemEstimatedPrice = Number(product.pricePerKg || 0) * (avgWeight || 1) * takeAmount; // takeAmount is units
+                    } else if (product.unitType === 'bunch') {
+                        itemEstimatedPrice = Number(product.pricePerBunch || 0) * takeAmount;
+                    } else if (product.unitType === 'unit') {
+                        itemEstimatedPrice = Number(product.pricePerUnit || 0) * takeAmount;
+                    } else {
+                        // weight_fixed -> takeAmount is KG
+                        itemEstimatedPrice = Number(product.pricePerKg || 0) * takeAmount;
+                    }
+
+                    finalOrderItems.push({
+                        productId: item.productId,
+                        estimatedQuantityKg: !isUnitBased ? takeAmount : undefined, // If weight based
+                        estimatedUnits: isUnitBased || product.unitType === 'weight_variable' ? takeAmount : undefined, // If unit/bunch based
+                        estimatedPrice: itemEstimatedPrice,
+                        assignedToProducerId: offer.producerId
+                    });
+
+                    totalEstimatedProducts += itemEstimatedPrice;
+
+                    // Decrement Stock in DB
+                    console.log(`[STOCK] Decrementing stock for offer ${offer.id}: ${takeAmount} ${isUnitBased ? 'units' : 'kg'}`);
+                    if (isUnitBased) {
+                        console.log(`[STOCK] Before: ${offer.availableUnits} units, decrementing ${takeAmount}`);
+                        const updatedOffer = await tx.offer.update({
+                            where: { id: offer.id },
+                            data: { availableUnits: { decrement: takeAmount } }
+                        });
+                        console.log(`[STOCK] After update: ${updatedOffer.availableUnits} units (should be ${(offer.availableUnits || 0) - takeAmount})`);
+                    } else {
+                        // For weight based, takeAmount is KG
+                        const newKg = Number(offer.availableQuantityKg) - takeAmount;
+                        const updatedOffer = await tx.offer.update({
+                            where: { id: offer.id },
+                            data: { availableQuantityKg: newKg.toString() }
+                        });
+                        console.log(`[STOCK] After update: ${updatedOffer.availableQuantityKg} kg (should be ${newKg})`);
+                    }
+
+                    remainingNeededConfigured -= takeAmount;
+                }
+
+                if (remainingNeededConfigured > 0.01) { // Tolerance for float math
+                    throw new BadRequestException(`No hay stock suficiente para ${product.name}. Faltan: ${remainingNeededConfigured}`);
+                }
+            }
 
             // 4. Create the Order
+            console.log(`[ORDER] Creating order with ${finalOrderItems.length} items, total: ${totalEstimatedProducts + deliveryFee}€`);
             const order = await tx.order.create({
                 data: {
                     tenantId,
@@ -248,11 +304,11 @@ export class OrdersService {
             });
 
             // 5. Create OrderItems
-            const orderItemsData = itemsWithProducers.map(item => ({
+            const orderItemsData = finalOrderItems.map(item => ({
                 orderId: order.id,
                 productId: item.productId,
-                estimatedQuantityKg: item.quantityKg,
-                estimatedUnits: item.units,
+                estimatedQuantityKg: item.estimatedQuantityKg,
+                estimatedUnits: item.estimatedUnits,
                 estimatedPrice: item.estimatedPrice,
                 assignedToProducerId: item.assignedToProducerId,
             }));
@@ -261,19 +317,53 @@ export class OrdersService {
                 data: orderItemsData
             });
 
+            console.log(`[ORDER] Order created successfully: ${order.id}`);
+            console.log(`[TRANSACTION] Committing transaction...`);
             return order;
+        }).then(order => {
+            console.log(`[TRANSACTION] Transaction committed successfully for order ${order.id}`);
+            return order;
+        }).catch(error => {
+            console.error(`[TRANSACTION] Transaction failed and rolled back:`, error);
+            throw error;
         });
     }
 
+
+    /**
+     * Obtiene todos los pedidos realizados por un consumidor.
+     * @param tenantId ID del tenant.
+     * @param consumerId ID del consumidor.
+     * @returns Lista de pedidos con sus items y productos.
+     */
     async getConsumerOrders(tenantId: string, consumerId: string) {
         return this.prisma.order.findMany({
             where: { tenantId, consumerId },
-            include: { items: { include: { product: true, review: true } } },
+            include: {
+                items: {
+                    include: {
+                        product: true,
+                        review: true,
+                        assignedProducer: {
+                            select: { name: true }
+                        }
+                    }
+                }
+            },
             orderBy: { week: 'desc' }
         });
     }
 
     // 4. Update Harvest Weight (Real Adjustment)
+
+    /**
+     * Actualiza el peso real de un item tras la cosecha y recalcula el precio final del pedido.
+     * @param tenantId ID del tenant.
+     * @param producerId ID del productor que realiza el ajuste.
+     * @param orderItemId ID del item del pedido.
+     * @param realWeightKg Peso real en kg.
+     * @returns El item de pedido actualizado.
+     */
     async updateHarvestWeight(tenantId: string, producerId: string, orderItemId: string, realWeightKg: number) {
         return this.prisma.$transaction(async (tx) => {
             const orderItem = await tx.orderItem.findUnique({
@@ -328,6 +418,14 @@ export class OrdersService {
     }
 
     // 5. Get Picking List for Producer
+
+    /**
+     * Obtiene la lista de picking (cosecha) para un productor específico en una semana.
+     * @param tenantId ID del tenant.
+     * @param producerId ID del productor.
+     * @param week Fecha de la semana.
+     * @returns Lista de items a cosechar/preparar.
+     */
     async getPickingList(tenantId: string, producerId: string, week: string) {
         const weekDate = new Date(week);
         return this.prisma.orderItem.findMany({
@@ -360,6 +458,14 @@ export class OrdersService {
     }
 
     // 6. Confirm Pickup (Captain Action)
+
+    /**
+     * Confirma la recogida de un pedido mediante un token QR (acción del Capitán).
+     * @param tenantId ID del tenant.
+     * @param captainId ID del capitán que confirma.
+     * @param qrToken Token único del pedido.
+     * @returns El pedido marcado como entregado.
+     */
     async confirmPickup(tenantId: string, captainId: string, qrToken: string) {
         // Find order by QR Token
         const order = await this.prisma.order.findUnique({
@@ -376,10 +482,30 @@ export class OrdersService {
                 status: 'delivered',
                 pickupConfirmedBy: captainId as string,
                 pickupConfirmedAt: new Date(),
+            },
+            include: {
+                consumer: {
+                    select: { name: true, email: true }
+                },
+                items: {
+                    include: {
+                        product: {
+                            select: { name: true, unitType: true }
+                        }
+                    }
+                }
             }
         });
     }
 
+
+    /**
+     * Cancela un pedido y restaura el stock de los productos asociados.
+     * @param tenantId ID del tenant.
+     * @param consumerId ID del consumidor que cancela.
+     * @param orderId ID del pedido a cancelar.
+     * @returns El pedido actualizado.
+     */
     async cancelOrder(tenantId: string, consumerId: string, orderId: string) {
         return this.prisma.$transaction(async (tx) => {
             const order = await tx.order.findUnique({
@@ -428,6 +554,102 @@ export class OrdersService {
                 where: { id: orderId },
                 data: { status: 'cancelled' }
             });
+        });
+    }
+
+    /**
+     * Obtiene los productos que un productor tiene pendientes de entregar para la semana activa.
+     * @param tenantId ID del nodo.
+     * @param producerId ID del productor.
+     * @returns Lista de grupos de entrega por pedido (Bin).
+     */
+    async getProducerPendingDeliveries(tenantId: string, producerId: string): Promise<ProducerDeliveryGroup[]> {
+        // 1. Get all items assigned to producer for ACTIVE orders
+        const items = await this.prisma.orderItem.findMany({
+            where: {
+                assignedToProducerId: producerId,
+                order: {
+                    tenantId,
+                    status: { not: 'cancelled' }
+                }
+            },
+            include: {
+                order: { include: { consumer: { select: { name: true } } } },
+                product: { select: { name: true, unitType: true } }
+            }
+        });
+
+        // 2. Check existing confirmed deliveries
+        const deliveries = await this.prisma.delivery.findMany({
+            where: {
+                tenantId,
+                producerId,
+                confirmedAt: { not: null }
+            }
+        });
+        const confirmedOrderIds = new Set(deliveries.map(d => d.orderId));
+
+        // 3. Group by Order
+        const groups: Record<string, ProducerDeliveryGroup> = {};
+
+        for (const item of items) {
+            if (confirmedOrderIds.has(item.orderId)) continue;
+
+            if (!groups[item.orderId]) {
+                groups[item.orderId] = {
+                    orderId: item.orderId,
+                    binNumber: item.order.binNumber,
+                    customerName: item.order.consumer?.name || 'Cliente',
+                    items: []
+                };
+            }
+
+            groups[item.orderId].items.push({
+                id: item.id,
+                productName: item.product.name,
+                unitType: item.product.unitType,
+                qty: (item.product.unitType === 'bunch' || item.product.unitType === 'unit')
+                    ? item.estimatedUnits
+                    : Number(item.estimatedQuantityKg).toFixed(2)
+            });
+        }
+
+        return Object.values(groups).sort((a: ProducerDeliveryGroup, b: ProducerDeliveryGroup) => (a.binNumber || 0) - (b.binNumber || 0));
+    }
+
+    /**
+     * Confirma la recepción de la mercancía de un productor para un pedido específico.
+     * @param tenantId ID del nodo.
+     * @param producerId ID del productor.
+     * @param orderId ID del pedido.
+     * @param confirmedBy ID del usuario (Capitán) que confirma.
+     */
+    async confirmProducerDelivery(tenantId: string, producerId: string, orderId: string, confirmedBy: string) {
+        // Create Delivery Record
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order) throw new NotFoundException('Order not found');
+
+        // Upsert logic manually check
+        const existing = await this.prisma.delivery.findFirst({
+            where: { orderId, producerId }
+        });
+
+        if (existing) {
+            return this.prisma.delivery.update({
+                where: { id: existing.id },
+                data: { confirmedAt: new Date(), confirmedBy }
+            });
+        }
+
+        return this.prisma.delivery.create({
+            data: {
+                tenantId,
+                orderId,
+                producerId,
+                binNumber: order.binNumber || 0,
+                confirmedAt: new Date(),
+                confirmedBy
+            }
         });
     }
 }

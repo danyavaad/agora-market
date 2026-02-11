@@ -1,7 +1,8 @@
 /*
  * File: seasons.service.ts
- * Purpose: Business logic for managing Seasons and Producer Rotations.
- * Dependencies: PrismaService, CreateSeasonDto, UpdateRotationDto
+ * Purpose: Lógica de negocio para la gestión de temporadas, rotación y prioridades (Draft).
+ * Dependencies: PrismaService
+ * Domain: Temporadas
  */
 
 import { Injectable, NotFoundException } from '@nestjs/common';
@@ -14,6 +15,13 @@ import { SeasonStatus, Prisma } from '@prisma/client';
 export class SeasonsService {
     constructor(private prisma: PrismaService) { }
 
+
+    /**
+     * Crea una nueva temporada, calculando automáticamente la rotación de productores.
+     * @param tenantId ID del tenant.
+     * @param createSeasonDto DTO con los datos de la temporada.
+     * @returns La temporada creada.
+     */
     async create(tenantId: string, createSeasonDto: CreateSeasonDto) {
         // 1. Get the previous season to determine rotation
         const previousSeason = await this.prisma.season.findFirst({
@@ -81,6 +89,12 @@ export class SeasonsService {
         });
     }
 
+
+    /**
+     * Obtiene todas las temporadas de un tenant.
+     * @param tenantId ID del tenant.
+     * @returns Lista de temporadas.
+     */
     async findAll(tenantId: string) {
         return this.prisma.season.findMany({
             where: { tenantId },
@@ -88,6 +102,12 @@ export class SeasonsService {
         });
     }
 
+
+    /**
+     * Busca una temporada específica por su ID.
+     * @param id ID de la temporada.
+     * @returns La temporada encontrada.
+     */
     async findOne(id: string) {
         const season = await this.prisma.season.findUnique({
             where: { id },
@@ -96,6 +116,13 @@ export class SeasonsService {
         return season;
     }
 
+
+    /**
+     * Actualiza manualmente la rotación de productores de una temporada.
+     * @param id ID de la temporada.
+     * @param updateRotationDto DTO con la nueva rotación.
+     * @returns La temporada actualizada.
+     */
     async updateRotation(id: string, updateRotationDto: UpdateRotationDto) {
         return this.prisma.season.update({
             where: { id },
@@ -109,6 +136,16 @@ export class SeasonsService {
         return this.prisma.season.delete({ where: { id } });
     }
 
+
+    /**
+     * Establece o actualiza la prioridad de un productor para un producto en una temporada.
+     * @param seasonId ID de la temporada.
+     * @param producerId ID del productor.
+     * @param productId ID del producto.
+     * @param priorityOrder Orden de prioridad (1º, 2º...).
+     * @param tenantId ID del tenant.
+     * @returns La prioridad creada o actualizada.
+     */
     async setProducerPriority(
         seasonId: string,
         producerId: string,
@@ -163,6 +200,13 @@ export class SeasonsService {
         });
     }
 
+
+    /**
+     * Resuelve conflictos de prioridades mediante un "Draft", asignando productos a productores.
+     * @param seasonId ID de la temporada.
+     * @param tenantId ID del tenant.
+     * @returns Lista de asignaciones resultantes.
+     */
     async resolveConflicts(seasonId: string, tenantId: string) {
         // 1. Fetch Season and Rotation
         const season = await this.prisma.season.findUnique({

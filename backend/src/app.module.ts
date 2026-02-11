@@ -1,3 +1,10 @@
+/*
+ * File: app.module.ts
+ * Purpose: Módulo raíz que orquesta todos los dominios y servicios del sistema.
+ * Dependencies: PrismaModule, TenantsModule, SeasonsModule, OffersModule, OrdersModule, AuthModule, ProductsModule, FeedModule, DeliveryModule, ReviewModule, ChatModule, UploadsModule
+ * Domain: Core
+ */
+
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core'; // Import APP_GUARD
 import { AppController } from './app.controller';
@@ -18,6 +25,7 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { ReviewModule } from './reviews/reviews.module';
 import { ChatModule } from './chat/chat.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -33,8 +41,9 @@ import { UploadsModule } from './uploads/uploads.module';
     AuthModule,
     ProductsModule,
     UploadsModule,
+    UsersModule,
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
+      rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
   ],

@@ -4,6 +4,12 @@
  * Dependencies: SeasonsController, SeasonsService
  */
 
+/*
+ * File: seasons.module.ts
+ * Purpose: Módulo para la gestión de temporadas y rotación de productores.
+ * Dependencies: SeasonsController, SeasonsService
+ * Domain: Temporadas
+ */
 import { Module } from '@nestjs/common';
 import { SeasonsService } from './services/seasons.service';
 import { SeasonsController } from './controllers/seasons.controller';

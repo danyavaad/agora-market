@@ -1,8 +1,8 @@
 /*
  * File: auth.module.ts
- * Purpose: Encapsulates authentication logic
- * Dependencies: NestJS, Passport, JWT
- * Domain: Authentication
+ * Purpose: Encapsula la lógica de autenticación del sistema.
+ * Dependencies: Passport, JwtModule
+ * Domain: Autenticación
  */
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';

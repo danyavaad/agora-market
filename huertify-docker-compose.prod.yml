@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    container_name: huertify-app
+    restart: unless-stopped
+    expose: ["3000"]
+    ports:
+      - "127.0.0.1:3002:3000"
+    env_file:
+      - ./huertify-config/prod.env
+    volumes:
+      - ./backend/uploads:/app/uploads
+    networks:
+      - huertify-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: huertify-frontend
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:8888:80"
+    depends_on:
+      - app
+    networks:
+      - huertify-network
+
+volumes:
+  huertify_uploads:
+
+networks:
+  huertify-network:
+    name: huertify_huertify-network
+    external: true
